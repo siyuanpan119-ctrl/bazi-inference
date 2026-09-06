@@ -123,7 +123,7 @@ python3 scripts/report_engine.py --input assets/birth-input.example.json --as-of
 需要 Node.js 20+。在技能安装目录执行 `npm ci --ignore-scripts` 安装锁文件指定的 `iztro@2.6.1` 及依赖。依赖安装访问软件仓库，排盘本身在本地计算，不发送出生资料。没有 Node 环境时，八字计算仍可单独使用；紫微可改用用户提供的已核验命盘，不能声称已运行本适配器。
 
 ```bash
-node scripts/ziwei_chart.mjs --input /absolute/path/ziwei-input.json --output /absolute/path/ziwei-context.json
+node scripts/ziwei_chart.mjs --input /absolute/path/ziwei-input.json --output /absolute/path/ziwei-context.json --markdown /absolute/path/ziwei-context.md --palaces 命宫,官禄,财帛
 ```
 
 下面是**上游公开计算样例的格式示范**，不是用户生平：
@@ -136,7 +136,8 @@ node scripts/ziwei_chart.mjs --input /absolute/path/ziwei-input.json --output /a
     "status": "scenario", "clock_basis": "civil",
     "note": "公开安星样例，寅时为已提供时辰，不代表已核实个人出生钟表。"
   },
-  "targets": [{"solar_date": "2023-10-26", "hour_index": 0}]
+  "targets": [{"solar_date": "2023-10-26", "hour_index": 0}],
+  "years": [2023, 2024]
 }
 ```
 
@@ -144,7 +145,18 @@ node scripts/ziwei_chart.mjs --input /absolute/path/ziwei-input.json --output /a
 
 默认年界、运限界与年龄界采用 `normal`，晚子采用 `current`，安星为 `default`，`fixLeap=true`；完整四化、亮度表与许可证见 `assets/ziwei-profile.json`。通过 `--day-divide forward` 另算晚子次日分支；每次CLI启动独立进程，避免全局配置串盘。其他流派本接口尚未开放，不声称已经计算中州派或自定义宫干飞化。
 
-`targets` 是明确日期与时辰的**岁限快照**，不提供则只返回本命，不借用当前机器日期。一个年中快照不能代表跨农历年、生日或大限边界的全年；报告所需起止期间须由宿主确定覆盖并按变化分段。紫微虚岁、农历月界和岁限不能用八字交运日替代。
+`targets` 是明确日期与时辰的**岁限快照**；`years` 是需要覆盖的公历年（最多50个不重复的1901—2099年）。两者均未提供时只返回本命，不借用机器日期。`years` 在当前固定的 `normal` 年界／年龄界配置下扫描民用日期，按大限、流年、虚岁变化生成连续区间；出生年从出生时刻或已知时辰起算，标为部分年度。不是用一个年中快照代表全年，紫微岁限也不采用八字交运日。
+
+| 输出 | 使用方式 |
+|---|---|
+| `annual_periods[].coverage` | 检查 `complete_year` 或 `partial_birth_year`、实际覆盖范围与配置；仅覆盖大限、流年、虚岁，明确排除流月、流日和流时 |
+| `annual_periods[].segments[]` | 读取 `interval.start_inclusive` 至 `end_exclusive`、`starts_because` 和各段 `layers`；报告按不同段分别判断 |
+| `evidence_context.palace_catalog` | 完整十二宫、物理星曜位置和亮度；不是只保留目标宫 |
+| `evidence_context.natal_layer` | 本命宫位映射、三方四正、本命四化及落宫 |
+| `evidence_context.frames[].layers` | 快照或年度分段的独立大限／流年宫位、四化、流曜与叠宫映射 |
+| `source_ref`、`stem_source_ref`、稳定 `id` | JSON Pointer 可回溯计算原字段；相同星曜／四化跨视图重复出现按稳定ID去重，不重复加权 |
+
+`--markdown` 输出便于宿主阅读的底稿；`--palaces` 只筛选底稿目标宫（逗号分隔），不会裁掉JSON的十二宫。先读底稿，再按来源指针提取竞争解释需要的旁盘，四化必须保留 `source_scope`，不可把本命忌与流年忌混为同一层。以2024为例，本配置公历全年分为1月1日至2月10日、2月10日至2025年1月1日两段；这只是年界计算示范，不是事件应验日。若问题需要流月／流日，须另建明确日期快照并核验相应边界，不把当前年度分段冒称完整月日覆盖。
 
 输出保存版本、配置、文件哈希、规范化声明、本命和指定岁限。它们保证计算口径可追溯，不是医学诊断或具体事件预测。继续依 `ziwei-inference.md` 解读，结合八字时先各自形成判断，再比较同一主体、同一事件阶段与时间范围。
 

@@ -11,7 +11,7 @@ codex plugin marketplace add siyuanpan119-ctrl/- --ref main
 codex plugin add bazi-inference@bazi-inference
 ```
 
-然后完全退出并重新打开 ChatGPT 桌面客户端，打开 **Plugins**，在 **Installed** 中确认“八字命理推演（Bazi Inference）”已启用，并新建一个对话。
+然后打开 **Plugins**，刷新或重新打开插件页面，在 **Installed** 中确认“八字命理推演（Bazi Inference）”已启用，并新建一个对话。
 
 在 ChatGPT 中输入 `@八字` 或在 Codex 中输入 `$bazi-inference` 进行显式调用。也可以直接提交出生时间、性别、出生城市和问题，让系统根据 Skill 描述自动匹配。
 

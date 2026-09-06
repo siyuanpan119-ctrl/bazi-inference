@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import { buildAnnualPeriods, buildEvidenceContext, renderEvidenceMarkdown } from './ziwei_context.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,7 +13,8 @@ const profileBytes = fs.readFileSync(path.join(root, 'assets/ziwei-profile.json'
 const profileTemplate = JSON.parse(profileBytes);
 const help = `Local Ziwei chart adapter (optional dependency: npm ci --ignore-scripts)
 Usage: node scripts/ziwei_chart.mjs --input normalized.json [--output chart.json]
-       [--day-divide current|forward]
+       [--day-divide current|forward] [--markdown context.md]
+       [--palaces 命宫,官禄,财帛,夫妻,子女,疾厄]
 
 Input JSON (dates must be real Gregorian dates within 1901-2099):
 {
@@ -22,7 +24,8 @@ Input JSON (dates must be real Gregorian dates within 1901-2099):
     "status": "confirmed", "clock_basis": "civil",
     "note": "Upstream verified historical timezone/DST; no solar-time correction."
   },
-  "targets": [{"solar_date": "2023-10-26", "hour_index": 0}]
+  "targets": [{"solar_date": "2023-10-26", "hour_index": 0}],
+  "years": [2023, 2024]
 }
 hour_index: 0=00:00-00:59, 1=01:00-02:59, ... 11=21:00-22:59,
 12=23:00-23:59. Each clock_time, when supplied, must agree with its index.
@@ -34,7 +37,14 @@ The default profile uses normal year/horoscope/age division, current late-Zi day
 default algorithm, fixLeap=true and pinned complete four-transform/brightness tables.
 The forward switch makes an explicitly labelled alternate profile; do not replace
 the birth date manually as well. Targets are explicit snapshots, not whole-year
-coverage. Output contains calculations, not predictions or medical diagnoses.
+coverage. Optional years (max 50 distinct years) scans civil dates and returns
+contiguous decadal/yearly/nominal-age segments under this normal-year profile.
+Birth-year coverage is clipped at birth. Monthly/daily/hourly layers are NOT
+covered by these segments. evidence_context exposes separate natal/decadal/yearly
+palace maps, surrounding palaces, four-transform sources and scoped moving stars.
+--markdown writes a selected-palace reading sheet; --palaces affects only this
+sheet, never the complete JSON. Output contains calculations, not predictions
+or medical diagnoses.
 No birth data is sent to a network service. Input '-' reads standard input.
 `;
 
@@ -65,7 +75,7 @@ function clock(value, label) {
   }
 }
 function validate(input) {
-  only(input, ['schema_version', 'solar_date', 'hour_index', 'clock_time', 'sex', 'normalization', 'targets'], 'input');
+  only(input, ['schema_version', 'solar_date', 'hour_index', 'clock_time', 'sex', 'normalization', 'targets', 'years'], 'input');
   if (input.schema_version !== 'ziwei-normalized-input/v1') fail('Unsupported or missing input schema_version');
   clock(input, 'input');
   if (!['male', 'female'].includes(input.sex)) fail('sex must be male or female');
@@ -79,6 +89,16 @@ function validate(input) {
     clock(target, `targets[${i}]`);
     if (target.solar_date < input.solar_date || (target.solar_date === input.solar_date && target.hour_index < input.hour_index))
       fail(`targets[${i}] precedes birth`);
+    if (target.solar_date === input.solar_date && target.hour_index === input.hour_index &&
+        target.clock_time !== undefined && input.clock_time !== undefined && target.clock_time < input.clock_time)
+      fail(`targets[${i}] precedes birth clock_time`);
+  }
+  if (input.years !== undefined && (!Array.isArray(input.years) || input.years.length > 50))
+    fail('years must be an array with at most 50 distinct Gregorian years');
+  if (new Set(input.years ?? []).size !== (input.years ?? []).length) fail('years must not contain duplicates');
+  for (const year of input.years ?? []) {
+    if (!Number.isInteger(year) || year < 1901 || year > 2099) fail('years entries must be integer Gregorian years within 1901-2099');
+    if (year < Number(input.solar_date.slice(0, 4))) fail('years must not precede the birth year');
   }
 }
 
@@ -111,11 +131,13 @@ function calculate(input, dayDivide) {
       'normalization is caller asserted, not verified by this adapter; scenario status remains scenario.',
       'Each CLI call is a separate process because iztro configuration is global.',
       'natal.chineseDate follows this Ziwei profile and must not overwrite a separately verified BaZi chart.',
-      'Snapshot boundaries follow the declared profile. Annual/monthly reports require all relevant boundary snapshots.',
+      'Targets are point snapshots. annual_periods covers only decadal/yearly/nominal-age layers under the fixed normal-year profile; it excludes monthly/daily/hourly layers.',
       'Calculation consistency does not establish accuracy of predictions about a person.',
     ],
   };
   if (output.natal.palaces.length !== 12) fail('Unexpected engine output: expected twelve palaces');
+  output.annual_periods = buildAnnualPeriods(natal, input, profile);
+  output.evidence_context = buildEvidenceContext(output);
   return output;
 }
 
@@ -126,19 +148,25 @@ try {
   } else {
     const options = {};
     for (let i = 0; i < args.length; i += 2) {
-      if (!['--input', '--output', '--day-divide'].includes(args[i]) || !args[i + 1] || args[i + 1].startsWith('--')) fail('Invalid CLI arguments; use --help');
+      if (!['--input', '--output', '--day-divide', '--markdown', '--palaces'].includes(args[i]) || !args[i + 1] || args[i + 1].startsWith('--')) fail('Invalid CLI arguments; use --help');
       if (options[args[i]] !== undefined) fail(`Duplicate option ${args[i]}`);
       options[args[i]] = args[i + 1];
     }
     if (!options['--input']) fail('--input is required; use --help');
     const dayDivide = options['--day-divide'] ?? 'current';
     if (!['current', 'forward'].includes(dayDivide)) fail('--day-divide must be current or forward');
+    if (options['--palaces'] && !options['--markdown']) fail('--palaces requires --markdown');
+    const destinations = [options['--output'], options['--markdown']].filter(Boolean).map(p => path.resolve(p));
+    if (new Set(destinations).size !== destinations.length) fail('JSON output and markdown must use different paths');
+    if (options['--input'] !== '-' && destinations.includes(path.resolve(options['--input']))) fail('Output must not overwrite input');
     const input = JSON.parse(fs.readFileSync(options['--input'] === '-' ? 0 : options['--input'], 'utf8'));
-    const encoded = `${JSON.stringify(calculate(input, dayDivide), null, 2)}\n`;
+    const output = calculate(input, dayDivide);
+    const markdown = options['--markdown'] ? renderEvidenceMarkdown(output, options['--palaces']?.split(',').map(p => p.trim())) : undefined;
+    const encoded = `${JSON.stringify(output, null, 2)}\n`;
     if (options['--output']) {
-      if (options['--input'] !== '-' && path.resolve(options['--output']) === path.resolve(options['--input'])) fail('Output must not overwrite input');
       fs.writeFileSync(options['--output'], encoded, { mode: 0o600 });
     } else process.stdout.write(encoded);
+    if (options['--markdown']) fs.writeFileSync(options['--markdown'], markdown, { mode: 0o600 });
   }
 } catch (error) {
   const message = error?.code === 'MODULE_NOT_FOUND' ? 'Optional iztro dependency is missing; run npm ci --ignore-scripts in the skill directory.' : error.message;

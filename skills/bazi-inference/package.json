@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference-optional-ziwei",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Optional local, fixed-profile Ziwei chart calculation; no event predictions.",

@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
@@ -12,7 +12,9 @@
     "annual and luck-cycle reports",
     "optional local Ziwei chart and horoscope calculation",
     "independent BaZi / Ziwei interpretation and fixed fusion protocol",
-    "candidate discrimination and branch-complete inference"
+    "candidate discrimination and branch-complete inference",
+    "complete scoped Ziwei evidence context and Gregorian-year segmentation",
+    "condition-based event discrimination and symmetric conflict handling"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",
@@ -26,6 +28,7 @@
     "status": "experimental",
     "requires_separate_clock_normalization": true,
     "minimum_node": "20",
-    "fusion_gain_validated": false
+    "fusion_gain_validated": false,
+    "annual_coverage": "Gregorian year segments at declared annual/decadal boundaries; no full monthly coverage claim"
   }
 }

@@ -12,7 +12,8 @@ def main():
     sys.path.insert(0, str(scripts))
     release = json.loads((root / "assets/release.json").read_text(encoding="utf-8"))
     required = ["SKILL.md", "scripts/report_engine.py", "references/inference.md", "references/annual-report.md",
-                "references/calculation.md", "references/patterns.md", "references/question-analysis.md"]
+                "references/calculation.md", "references/patterns.md", "references/question-analysis.md",
+                "references/ziwei-inference.md", "references/event-discrimination.md"]
     for relative in required:
         if not (root / relative).is_file():
             raise FileNotFoundError(relative)

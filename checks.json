@@ -1,9 +1,9 @@
 {
   "skill": "bazi-inference",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "core_tests": 57,
-  "maintainer_tests": 62,
-  "tests": 119,
+  "maintainer_tests": 74,
+  "tests": 131,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
@@ -12,10 +12,10 @@
   "optional_ziwei": {
     "engine": "iztro@2.6.1",
     "node_tested": "24.19.0",
-    "test_groups": 7,
+    "test_groups": 14,
     "failures": 0,
     "software_checks_pass": true,
     "prediction_accuracy_validated": false
   },
-  "all_software_test_cases_or_groups": 126
+  "all_software_test_cases_or_groups": 145
 }

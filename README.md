@@ -2,7 +2,7 @@
 
 **教 AI Agent 根据出生时间、性别和出生地算命。** 本技能提供从排盘到判断的完整传统方法：看月令和根气、辨旺衰、取格局用神与相神、分析成败救应，再推进到大运、流年、流月，回答用户实际关心的问题。
 
-当前版本 **0.3.0**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
+当前版本 **0.4.0**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
 
 ## 普通用户怎样用
 
@@ -34,6 +34,8 @@
 | 表达 | 先回答所问，再说明关键依据与改变判断的条件，不用泛泛建议代替解读 |
 
 技能主入口：[SKILL.md](skills/bazi-inference/SKILL.md)。核心教学：[推演主流程](skills/bazi-inference/references/inference.md)、[格局条件树](skills/bazi-inference/references/patterns.md)、[具体问题判断](skills/bazi-inference/references/question-analysis.md)、[年度和大运报告](skills/bazi-inference/references/annual-report.md)。
+
+具体事件增加[条件与反证检查](skills/bazi-inference/references/event-discrimination.md)，区分事件对象、阶段和实际时间范围。
 
 紫微模块：[独立解盘与双系统比较](skills/bazi-inference/references/ziwei-inference.md)。一般咨询的交付仍是连贯的判断和依据，不要求用户参与开发评测。
 
