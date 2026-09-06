@@ -1,0 +1,396 @@
+{
+  "schema_version": "ziwei-profile/v1",
+  "id": "iztro-2.6.1-normal-current-default-v1",
+  "engine": {
+    "name": "iztro",
+    "version": "2.6.1",
+    "license": "MIT"
+  },
+  "config": {
+    "yearDivide": "normal",
+    "horoscopeDivide": "normal",
+    "dayDivide": "current",
+    "ageDivide": "normal",
+    "algorithm": "default",
+    "mutagens": {
+      "jiaHeavenly": [
+        "lianzhenMaj",
+        "pojunMaj",
+        "wuquMaj",
+        "taiyangMaj"
+      ],
+      "yiHeavenly": [
+        "tianjiMaj",
+        "tianliangMaj",
+        "ziweiMaj",
+        "taiyinMaj"
+      ],
+      "bingHeavenly": [
+        "tiantongMaj",
+        "tianjiMaj",
+        "wenchangMin",
+        "lianzhenMaj"
+      ],
+      "dingHeavenly": [
+        "taiyinMaj",
+        "tiantongMaj",
+        "tianjiMaj",
+        "jumenMaj"
+      ],
+      "wuHeavenly": [
+        "tanlangMaj",
+        "taiyinMaj",
+        "youbiMin",
+        "tianjiMaj"
+      ],
+      "jiHeavenly": [
+        "wuquMaj",
+        "tanlangMaj",
+        "tianliangMaj",
+        "wenquMin"
+      ],
+      "gengHeavenly": [
+        "taiyangMaj",
+        "wuquMaj",
+        "taiyinMaj",
+        "tiantongMaj"
+      ],
+      "xinHeavenly": [
+        "jumenMaj",
+        "taiyangMaj",
+        "wenquMin",
+        "wenchangMin"
+      ],
+      "renHeavenly": [
+        "tianliangMaj",
+        "ziweiMaj",
+        "zuofuMin",
+        "wuquMaj"
+      ],
+      "guiHeavenly": [
+        "pojunMaj",
+        "jumenMaj",
+        "taiyinMaj",
+        "tanlangMaj"
+      ]
+    },
+    "brightness": {
+      "ziweiMaj": [
+        "wang",
+        "wang",
+        "de",
+        "wang",
+        "miao",
+        "miao",
+        "wang",
+        "wang",
+        "de",
+        "wang",
+        "ping",
+        "miao"
+      ],
+      "tianjiMaj": [
+        "de",
+        "wang",
+        "li",
+        "ping",
+        "miao",
+        "xian",
+        "de",
+        "wang",
+        "li",
+        "ping",
+        "miao",
+        "xian"
+      ],
+      "taiyangMaj": [
+        "wang",
+        "miao",
+        "wang",
+        "wang",
+        "wang",
+        "de",
+        "de",
+        "ping",
+        "bu",
+        "xian",
+        "xian",
+        "bu"
+      ],
+      "wuquMaj": [
+        "de",
+        "li",
+        "miao",
+        "ping",
+        "wang",
+        "miao",
+        "de",
+        "li",
+        "miao",
+        "ping",
+        "wang",
+        "miao"
+      ],
+      "tiantongMaj": [
+        "li",
+        "ping",
+        "ping",
+        "miao",
+        "xian",
+        "bu",
+        "wang",
+        "ping",
+        "ping",
+        "miao",
+        "wang",
+        "bu"
+      ],
+      "lianzhenMaj": [
+        "miao",
+        "ping",
+        "li",
+        "xian",
+        "ping",
+        "li",
+        "miao",
+        "ping",
+        "li",
+        "xian",
+        "ping",
+        "li"
+      ],
+      "tianfuMaj": [
+        "miao",
+        "de",
+        "miao",
+        "de",
+        "wang",
+        "miao",
+        "de",
+        "wang",
+        "miao",
+        "de",
+        "miao",
+        "miao"
+      ],
+      "taiyinMaj": [
+        "wang",
+        "xian",
+        "xian",
+        "xian",
+        "bu",
+        "bu",
+        "li",
+        "wang",
+        "wang",
+        "miao",
+        "miao",
+        "miao"
+      ],
+      "tanlangMaj": [
+        "ping",
+        "li",
+        "miao",
+        "xian",
+        "wang",
+        "miao",
+        "ping",
+        "li",
+        "miao",
+        "xian",
+        "wang",
+        "miao"
+      ],
+      "jumenMaj": [
+        "miao",
+        "miao",
+        "xian",
+        "wang",
+        "wang",
+        "bu",
+        "miao",
+        "miao",
+        "xian",
+        "wang",
+        "wang",
+        "bu"
+      ],
+      "tianxiangMaj": [
+        "miao",
+        "xian",
+        "de",
+        "de",
+        "miao",
+        "de",
+        "miao",
+        "xian",
+        "de",
+        "de",
+        "miao",
+        "miao"
+      ],
+      "tianliangMaj": [
+        "miao",
+        "miao",
+        "miao",
+        "xian",
+        "miao",
+        "wang",
+        "xian",
+        "de",
+        "miao",
+        "xian",
+        "miao",
+        "wang"
+      ],
+      "qishaMaj": [
+        "miao",
+        "wang",
+        "miao",
+        "ping",
+        "wang",
+        "miao",
+        "miao",
+        "wang",
+        "miao",
+        "ping",
+        "wang",
+        "miao"
+      ],
+      "pojunMaj": [
+        "de",
+        "xian",
+        "wang",
+        "ping",
+        "miao",
+        "wang",
+        "de",
+        "xian",
+        "wang",
+        "ping",
+        "miao",
+        "wang"
+      ],
+      "wenchangMin": [
+        "xian",
+        "li",
+        "de",
+        "miao",
+        "xian",
+        "li",
+        "de",
+        "miao",
+        "xian",
+        "li",
+        "de",
+        "miao"
+      ],
+      "wenquMin": [
+        "ping",
+        "wang",
+        "de",
+        "miao",
+        "xian",
+        "wang",
+        "de",
+        "miao",
+        "xian",
+        "wang",
+        "de",
+        "miao"
+      ],
+      "huoxingMin": [
+        "miao",
+        "li",
+        "xian",
+        "de",
+        "miao",
+        "li",
+        "xian",
+        "de",
+        "miao",
+        "li",
+        "xian",
+        "de"
+      ],
+      "lingxingMin": [
+        "miao",
+        "li",
+        "xian",
+        "de",
+        "miao",
+        "li",
+        "xian",
+        "de",
+        "miao",
+        "li",
+        "xian",
+        "de"
+      ],
+      "qingyangMin": [
+        "",
+        "xian",
+        "miao",
+        "",
+        "xian",
+        "miao",
+        "",
+        "xian",
+        "miao",
+        "",
+        "xian",
+        "miao"
+      ],
+      "tuoluoMin": [
+        "xian",
+        "",
+        "miao",
+        "xian",
+        "",
+        "miao",
+        "xian",
+        "",
+        "miao",
+        "xian",
+        "",
+        "miao"
+      ]
+    }
+  },
+  "fixLeap": true,
+  "language": "zh-CN",
+  "table_conventions": {
+    "keys": "iztro internal i18n keys",
+    "mutagen_order": [
+      "禄",
+      "权",
+      "科",
+      "忌"
+    ],
+    "brightness_palace_order": [
+      "寅",
+      "卯",
+      "辰",
+      "巳",
+      "午",
+      "未",
+      "申",
+      "酉",
+      "戌",
+      "亥",
+      "子",
+      "丑"
+    ]
+  },
+  "sources": [
+    "https://github.com/SylarLong/iztro/releases/tag/v2.6.1",
+    "https://iztro.com/posts/config-n-plugin",
+    "https://iztro.com/quick-start"
+  ],
+  "notes": [
+    "Rule profile is an implementation convention, not a claim that one school is empirically correct.",
+    "dayDivide=current is the declared baseline; generate a separate forward scenario for late Zi uncertainty.",
+    "Tables copied from MIT-licensed iztro 2.6.1 data exports; engine license is included in its installed npm package."
+  ],
+  "upstream_license": "MIT License\n\nCopyright (c) 2023 All Contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+}

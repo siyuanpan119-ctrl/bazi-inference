@@ -2,7 +2,7 @@
 
 **教 AI Agent 根据出生时间、性别和出生地算命。** 本技能提供从排盘到判断的完整传统方法：看月令和根气、辨旺衰、取格局用神与相神、分析成败救应，再推进到大运、流年、流月，回答用户实际关心的问题。
 
-当前版本 **0.2.0**。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率尚未得到独立验证。
+当前版本 **0.3.0**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
 
 ## 普通用户怎样用
 
@@ -19,6 +19,7 @@
 - 请分析婚恋倾向，以及2027和2028的差别。
 - 请给出年度报告、当前大运及重要流月。
 - 根据这份出生资料，判断给定的命例选项并说明理由。
+- 分别用八字和紫微分析，并说明两套判断是否一致、有什么区别。
 
 ## 技能具体教什么
 
@@ -29,9 +30,12 @@
 | 格局 | 用神、相神、成格条件、破坏与救应；扶抑和调候另列；合化、从格按条件审查 |
 | 岁运 | 同一命局中，大运、流年和流月补足或破坏了哪条作用链；多个年份按相同标准比较 |
 | 问题判断 | 区分职责与升职、营收与净资产、恋爱与登记等，比较竞争解释并给主要倾向 |
+| 紫微合参 | 独立计算命身、十二宫、星曜、四化和岁限；明确新增区分依据，冲突不靠任意加权解决 |
 | 表达 | 先回答所问，再说明关键依据与改变判断的条件，不用泛泛建议代替解读 |
 
 技能主入口：[SKILL.md](skills/bazi-inference/SKILL.md)。核心教学：[推演主流程](skills/bazi-inference/references/inference.md)、[格局条件树](skills/bazi-inference/references/patterns.md)、[具体问题判断](skills/bazi-inference/references/question-analysis.md)、[年度和大运报告](skills/bazi-inference/references/annual-report.md)。
+
+紫微模块：[独立解盘与双系统比较](skills/bazi-inference/references/ziwei-inference.md)。一般咨询的交付仍是连贯的判断和依据，不要求用户参与开发评测。
 
 ## 在 ChatGPT 和 Codex 安装 Plugin
 
@@ -60,6 +64,10 @@ python skills/bazi-inference/scripts/report_engine.py \
 ```
 
 程序负责可复算的数据；AI按技能继续完成命理解释。[合成年度报告](examples/annual-report.zh.md)与[事业年份比较](examples/career-comparison.zh.md)展示实际独立调用的交付形式，不是预测命中证明。
+
+### 可选紫微计算
+
+在技能目录执行 `npm ci --ignore-scripts`，按锁文件安装本地依赖。使用固定 `iztro@2.6.1`，不向在线算命服务上传出生资料。调用 `node scripts/ziwei_chart.mjs --help` 查看接口；时间规范化及参数说明见[计算说明](skills/bazi-inference/references/calculation.md)。引擎不接受出生城市，历史时区和夏令时必须先由宿主按计算层处理。无 Node 环境时仍可使用八字模块或用户提供的已核验紫微盘。
 
 ## 维护者怎样改进这套方法
 

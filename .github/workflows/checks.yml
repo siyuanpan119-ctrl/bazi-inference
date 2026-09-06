@@ -24,3 +24,21 @@ jobs:
           test -f skills/bazi-inference/SKILL.md
       - name: Run runtime and maintainer checks
         run: python maintainer/run_checks.py
+  ziwei:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['20', '24']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install locked optional dependencies
+        working-directory: skills/bazi-inference
+        run: npm ci --ignore-scripts
+      - name: Verify Ziwei adapter with public and synthetic cases
+        working-directory: skills/bazi-inference
+        run: npm run test:ziwei

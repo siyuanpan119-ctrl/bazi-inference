@@ -1,0 +1,17 @@
+{
+  "name": "bazi-inference-optional-ziwei",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional local, fixed-profile Ziwei chart calculation; no event predictions.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test:ziwei": "node --test scripts/test_ziwei_chart.mjs"
+  },
+  "dependencies": {
+    "iztro": "2.6.1"
+  }
+}

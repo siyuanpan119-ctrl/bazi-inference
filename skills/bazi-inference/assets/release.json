@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
@@ -9,12 +9,23 @@
     "birth-chart calculation",
     "traditional Bazi inference teaching",
     "specific-question interpretation",
-    "annual and luck-cycle reports"
+    "annual and luck-cycle reports",
+    "optional local Ziwei chart and horoscope calculation",
+    "independent BaZi / Ziwei interpretation and fixed fusion protocol",
+    "candidate discrimination and branch-complete inference"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",
     "Specific medical, legal and biographical events remain unvalidated",
     "Skill changes alter instructions and programs, not underlying model weights"
   ],
-  "maintainer_tools_bundled": false
+  "maintainer_tools_bundled": false,
+  "optional_ziwei_engine": {
+    "package": "iztro",
+    "version": "2.6.1",
+    "status": "experimental",
+    "requires_separate_clock_normalization": true,
+    "minimum_node": "20",
+    "fusion_gain_validated": false
+  }
 }

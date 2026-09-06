@@ -1,1 +1,21 @@
-{"skill": "bazi-inference", "version": "0.2.0", "core_tests": 57, "maintainer_tests": 53, "tests": 110, "failures": 0, "errors": 0, "skipped": 0, "software_checks_pass": true, "prediction_accuracy_validated": false}
+{
+  "skill": "bazi-inference",
+  "version": "0.3.0",
+  "core_tests": 57,
+  "maintainer_tests": 62,
+  "tests": 119,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "software_checks_pass": true,
+  "prediction_accuracy_validated": false,
+  "optional_ziwei": {
+    "engine": "iztro@2.6.1",
+    "node_tested": "24.19.0",
+    "test_groups": 7,
+    "failures": 0,
+    "software_checks_pass": true,
+    "prediction_accuracy_validated": false
+  },
+  "all_software_test_cases_or_groups": 126
+}
