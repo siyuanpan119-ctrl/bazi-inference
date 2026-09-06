@@ -1,0 +1,20 @@
+{
+  "name": "bazi-inference",
+  "version": "0.2.0",
+  "status": "experimental",
+  "minimum_python": "3.10",
+  "prediction_accuracy_validated": false,
+  "contains_private_training_cases": false,
+  "release_scope": [
+    "birth-chart calculation",
+    "traditional Bazi inference teaching",
+    "specific-question interpretation",
+    "annual and luck-cycle reports"
+  ],
+  "scope_limits": [
+    "Not a trained model or a guarantee of prediction accuracy",
+    "Specific medical, legal and biographical events remain unvalidated",
+    "Skill changes alter instructions and programs, not underlying model weights"
+  ],
+  "maintainer_tools_bundled": false
+}

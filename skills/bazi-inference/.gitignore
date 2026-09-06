@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+registry/
+answers/
+predictions/
+private-data/
+.pytest_cache/
+.DS_Store
+local-data/
+submissions/
+reviews/
+reports/

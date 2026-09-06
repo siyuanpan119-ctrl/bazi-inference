@@ -1,0 +1,14 @@
+{
+  "synthetic": true,
+  "description": "纯合成接口演示；不对应真实人物，不用于历史命中率。",
+  "birth_datetime": "2000-01-01T12:30:00",
+  "sex": "male",
+  "birthplace": "香港",
+  "calendar": "gregorian",
+  "input_basis": "civil",
+  "time_basis": "standard",
+  "day_boundary": "midnight",
+  "strict_boundary": true,
+  "time_uncertainty_minutes": 0,
+  "years": [2013, 2016]
+}

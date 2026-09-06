@@ -1,0 +1,234 @@
+{
+  "status": "exploratory_external_calendar_validation_not_event_accuracy",
+  "upstream_commit": "826e26ff3a6dc03ee46658b1138fef582d96c5d9",
+  "vendor_sha256": "41248c7b1edbf9d11119528eef7455a6dc55abde9f1aab40d363015e956c1729",
+  "count": 24,
+  "new_max_abs_seconds": 48.544968,
+  "new_mean_abs_seconds": 20.3562115,
+  "old_max_abs_seconds": 766.596538,
+  "old_mean_abs_seconds": 305.5362734583333,
+  "test_bypasses_bundled_hko_overrides": true,
+  "limitations": [
+    "HKO values rounded to minutes; timestamp differences include source rounding.",
+    "Only 2013 and 2016 measured; not a proven timing error bound for other years.",
+    "Upstream general angular accuracy is not equivalent to universal minute timing precision."
+  ],
+  "rows": [
+    {
+      "year": 2013,
+      "name": "小寒",
+      "expected_utc": "2013-01-05T04:34:00+00:00",
+      "raw_backend_utc": "2013-01-05T04:33:40.288251+00:00",
+      "backend_abs_error_seconds": 19.711749,
+      "previous_model_abs_error_seconds": 171.559897,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "立春",
+      "expected_utc": "2013-02-03T16:13:00+00:00",
+      "raw_backend_utc": "2013-02-03T16:13:22.144088+00:00",
+      "backend_abs_error_seconds": 22.144088,
+      "previous_model_abs_error_seconds": 214.884311,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "惊蛰",
+      "expected_utc": "2013-03-05T10:15:00+00:00",
+      "raw_backend_utc": "2013-03-05T10:14:35.308009+00:00",
+      "backend_abs_error_seconds": 24.691991,
+      "previous_model_abs_error_seconds": 450.704242,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "清明",
+      "expected_utc": "2013-04-04T15:02:00+00:00",
+      "raw_backend_utc": "2013-04-04T15:02:12.415467+00:00",
+      "backend_abs_error_seconds": 12.415467,
+      "previous_model_abs_error_seconds": 629.524013,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "立夏",
+      "expected_utc": "2013-05-05T08:18:00+00:00",
+      "raw_backend_utc": "2013-05-05T08:18:06.492635+00:00",
+      "backend_abs_error_seconds": 6.492635,
+      "previous_model_abs_error_seconds": 766.596538,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "芒种",
+      "expected_utc": "2013-06-05T12:23:00+00:00",
+      "raw_backend_utc": "2013-06-05T12:23:22.719786+00:00",
+      "backend_abs_error_seconds": 22.719786,
+      "previous_model_abs_error_seconds": 711.284095,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "小暑",
+      "expected_utc": "2013-07-06T22:35:00+00:00",
+      "raw_backend_utc": "2013-07-06T22:34:28.293977+00:00",
+      "backend_abs_error_seconds": 31.706023,
+      "previous_model_abs_error_seconds": 565.872146,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "立秋",
+      "expected_utc": "2013-08-07T08:20:00+00:00",
+      "raw_backend_utc": "2013-08-07T08:20:02.153875+00:00",
+      "backend_abs_error_seconds": 2.153875,
+      "previous_model_abs_error_seconds": 307.051421,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "白露",
+      "expected_utc": "2013-09-07T11:16:00+00:00",
+      "raw_backend_utc": "2013-09-07T11:16:03.133419+00:00",
+      "backend_abs_error_seconds": 3.133419,
+      "previous_model_abs_error_seconds": 175.401508,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "寒露",
+      "expected_utc": "2013-10-08T02:58:00+00:00",
+      "raw_backend_utc": "2013-10-08T02:58:31.956611+00:00",
+      "backend_abs_error_seconds": 31.956611,
+      "previous_model_abs_error_seconds": 103.172236,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "立冬",
+      "expected_utc": "2013-11-07T06:14:00+00:00",
+      "raw_backend_utc": "2013-11-07T06:14:07.209694+00:00",
+      "backend_abs_error_seconds": 7.209694,
+      "previous_model_abs_error_seconds": 117.89569,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2013,
+      "name": "大雪",
+      "expected_utc": "2013-12-06T23:09:00+00:00",
+      "raw_backend_utc": "2013-12-06T23:08:51.425326+00:00",
+      "backend_abs_error_seconds": 8.574674,
+      "previous_model_abs_error_seconds": 126.406375,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2013/Solar_Term_2013.htm"
+    },
+    {
+      "year": 2016,
+      "name": "小寒",
+      "expected_utc": "2016-01-05T22:08:00+00:00",
+      "raw_backend_utc": "2016-01-05T22:08:36.941684+00:00",
+      "backend_abs_error_seconds": 36.941684,
+      "previous_model_abs_error_seconds": 128.690273,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "立春",
+      "expected_utc": "2016-02-04T09:46:00+00:00",
+      "raw_backend_utc": "2016-02-04T09:45:56.907730+00:00",
+      "backend_abs_error_seconds": 3.09227,
+      "previous_model_abs_error_seconds": 121.389972,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "惊蛰",
+      "expected_utc": "2016-03-05T03:44:00+00:00",
+      "raw_backend_utc": "2016-03-05T03:43:14.487957+00:00",
+      "backend_abs_error_seconds": 45.512043,
+      "previous_model_abs_error_seconds": 159.16051,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "清明",
+      "expected_utc": "2016-04-04T08:28:00+00:00",
+      "raw_backend_utc": "2016-04-04T08:27:11.455032+00:00",
+      "backend_abs_error_seconds": 48.544968,
+      "previous_model_abs_error_seconds": 221.341353,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "立夏",
+      "expected_utc": "2016-05-05T01:42:00+00:00",
+      "raw_backend_utc": "2016-05-05T01:41:37.230761+00:00",
+      "backend_abs_error_seconds": 22.769239,
+      "previous_model_abs_error_seconds": 305.881949,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "芒种",
+      "expected_utc": "2016-06-05T05:49:00+00:00",
+      "raw_backend_utc": "2016-06-05T05:48:26.610327+00:00",
+      "backend_abs_error_seconds": 33.389673,
+      "previous_model_abs_error_seconds": 422.487632,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "小暑",
+      "expected_utc": "2016-07-06T16:03:00+00:00",
+      "raw_backend_utc": "2016-07-06T16:03:30.282298+00:00",
+      "backend_abs_error_seconds": 30.282298,
+      "previous_model_abs_error_seconds": 417.412406,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "立秋",
+      "expected_utc": "2016-08-07T01:53:00+00:00",
+      "raw_backend_utc": "2016-08-07T01:53:13.508720+00:00",
+      "backend_abs_error_seconds": 13.50872,
+      "previous_model_abs_error_seconds": 440.46424,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "白露",
+      "expected_utc": "2016-09-07T04:51:00+00:00",
+      "raw_backend_utc": "2016-09-07T04:51:09.794131+00:00",
+      "backend_abs_error_seconds": 9.794131,
+      "previous_model_abs_error_seconds": 377.066147,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "寒露",
+      "expected_utc": "2016-10-07T20:33:00+00:00",
+      "raw_backend_utc": "2016-10-07T20:33:15.118371+00:00",
+      "backend_abs_error_seconds": 15.118371,
+      "previous_model_abs_error_seconds": 233.91326,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "立冬",
+      "expected_utc": "2016-11-06T23:48:00+00:00",
+      "raw_backend_utc": "2016-11-06T23:47:31.863241+00:00",
+      "backend_abs_error_seconds": 28.136759,
+      "previous_model_abs_error_seconds": 117.628127,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    },
+    {
+      "year": 2016,
+      "name": "大雪",
+      "expected_utc": "2016-12-06T16:41:00+00:00",
+      "raw_backend_utc": "2016-12-06T16:41:08.548908+00:00",
+      "backend_abs_error_seconds": 8.548908,
+      "previous_model_abs_error_seconds": 47.082222,
+      "source": "https://www.hko.gov.hk/sc/gts/astron2016/Solar_Term_2016.htm"
+    }
+  ]
+}
