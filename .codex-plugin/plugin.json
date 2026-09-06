@@ -1,0 +1,37 @@
+{
+  "name": "bazi-inference",
+  "version": "0.2.0",
+  "description": "可复用的八字排盘、命局推演、具体问题分析及流年大运报告工作流。",
+  "author": {
+    "name": "siyuanpan119-ctrl",
+    "url": "https://github.com/siyuanpan119-ctrl"
+  },
+  "homepage": "https://github.com/siyuanpan119-ctrl/-",
+  "repository": "https://github.com/siyuanpan119-ctrl/-",
+  "license": "MIT",
+  "keywords": [
+    "bazi",
+    "four-pillars",
+    "八字",
+    "命理",
+    "流年大运"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "八字命理推演（Bazi Inference）",
+    "shortDescription": "根据出生资料分析命局、具体问题、流年和大运。",
+    "longDescription": "核验出生时间、性别和出生地后排定四柱，以固定方法分析日主旺衰、格局用神、相神与喜忌，并回答事业财运、婚恋家庭、学业性格、年度运势和流年大运等问题。",
+    "developerName": "siyuanpan119-ctrl",
+    "category": "Productivity",
+    "capabilities": [],
+    "websiteURL": "https://github.com/siyuanpan119-ctrl/-",
+    "defaultPrompt": [
+      "根据我的出生时间、性别和出生城市，核验四柱并完整分析命局。",
+      "分析我的事业财运、婚恋家庭，以及当前大运和未来几年流年。",
+      "比较指定年份的事业、财运或婚恋倾向，并说明判断依据。"
+    ],
+    "brandColor": "#7A1F1F",
+    "composerIcon": "./skills/bazi-inference/assets/icon.svg",
+    "logo": "./skills/bazi-inference/assets/icon.svg"
+  }
+}

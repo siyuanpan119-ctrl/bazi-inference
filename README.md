@@ -33,6 +33,12 @@
 
 技能主入口：[SKILL.md](skills/bazi-inference/SKILL.md)。核心教学：[推演主流程](skills/bazi-inference/references/inference.md)、[格局条件树](skills/bazi-inference/references/patterns.md)、[具体问题判断](skills/bazi-inference/references/question-analysis.md)、[年度和大运报告](skills/bazi-inference/references/annual-report.md)。
 
+## 在 ChatGPT 和 Codex 安装 Plugin
+
+本仓库根目录已经封装为 skills-only Plugin，并提供 GitHub marketplace。安装步骤见 [PLUGIN_INSTALL.md](PLUGIN_INSTALL.md)。
+
+安装完成并新建对话后，在 ChatGPT 输入 `@八字`，或在 Codex 输入 `$bazi-inference` 显式调用。系统也可以根据问题与 Skill 描述自动匹配。
+
 ## 安装给其他 AI Agent
 
 ```bash

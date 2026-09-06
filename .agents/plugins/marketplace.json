@@ -1,0 +1,21 @@
+{
+  "name": "bazi-inference",
+  "interface": {
+    "displayName": "Bazi Inference"
+  },
+  "plugins": [
+    {
+      "name": "bazi-inference",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/siyuanpan119-ctrl/-.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
