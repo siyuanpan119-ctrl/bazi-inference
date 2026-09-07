@@ -45,6 +45,12 @@ def compare_versions(old_frozen, old_score, new_frozen, new_score, registry_dir,
         raise AuditError("Score rows must cover the full frozen question set")
     paired = []
     for qid in sorted(old_records):
+        # Legacy submissions may omit these fields in both arms. If either arm
+        # records them, preserve exact question and observation-scope identity.
+        for field in ("original_stem", "observation_year"):
+            before, after = old_records[qid], new_records[qid]
+            if (field in before) != (field in after) or before.get(field) != after.get(field):
+                raise AuditError(f"Paired {field} differs for {qid}")
         old_options = {c["id"]: c for c in old_records[qid]["candidates"]}
         new_options = {c["id"]: c for c in new_records[qid]["candidates"]}
         if old_options != new_options:
@@ -81,6 +87,8 @@ def compare_versions(old_frozen, old_score, new_frozen, new_score, registry_dir,
         experiment_id = None
     all_people = set(old["question_persons"].values())
     for label, plan in (("old", old_plan), ("new", new_plan)):
+        if plan.get("preflight_comparable_protocol_declared") is False:
+            reasons.append(f"{label} preflight limits this comparison to descriptive results")
         provenance = plan.get("person_provenance", {})
         if set(provenance) != all_people or any(v != "new_person_no_answers_seen" for v in provenance.values()):
             reasons.append(f"{label} version lacks complete new-person declarations")
@@ -95,6 +103,15 @@ def compare_versions(old_frozen, old_score, new_frozen, new_score, registry_dir,
         reasons.append("Both actual external pre-reveal submissions have not been checked")
     delta = (new_metrics["accuracy_on_full_denominator"] - old_metrics["accuracy_on_full_denominator"]
              if eligible else None)
+    # Overlapping diagnostics, not a partition: an unresolved choice may be a forced guess.
+    decision_groups = {}
+    for label, records, rows in (("old", old_records, old_rows), ("new", new_records, new_rows)):
+        decision_groups[label] = {
+            status: summarize([rows[qid] for qid in sorted(included_ids)
+                               if (records[qid]["selection"].get("unresolved") is True
+                                   if status == "unresolved"
+                                   else records[qid]["selection"].get("status") == status)])
+            for status in ("unresolved", "forced_guess", "abstain", "stated_in_prompt")}
     return {
         "schema_version": "paired-version-comparison-1.0",
         "mode": "prospective_design_declared" if not reasons else "nonprospective_descriptive",
@@ -114,6 +131,12 @@ def compare_versions(old_frozen, old_score, new_frozen, new_score, registry_dir,
         "descriptive_all_rows_including_hindsight": {"old": old_all, "new": new_all,
              "full_denominator_accuracy_delta": new_all["accuracy_on_full_denominator"]-old_all["accuracy_on_full_denominator"]},
         "by_person": per_person, "rows": paired,
+        "by_decision_status_eligible": decision_groups,
+        "decision_status_groups_may_overlap": True,
+        "unresolved_marker_missing_eligible": {
+            label: sum(type(records[qid]["selection"].get("unresolved")) is not bool
+                       for qid in included_ids)
+            for label, records in (("old", old_records), ("new", new_records))},
         "statistical_significance_assessed": False, "accuracy_improvement_established": False,
         "limitations": ["External chronology and unseen-answer declarations require human/source verification.",
                         "A positive paired difference describes these submissions, not proven general improvement.",

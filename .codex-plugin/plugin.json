@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "可复用的八字推演与可选紫微合参，回答具体命理问题和年度大运报告。",
   "author": {
     "name": "siyuanpan119-ctrl",

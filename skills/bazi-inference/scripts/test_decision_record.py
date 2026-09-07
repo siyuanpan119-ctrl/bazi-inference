@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from copy import deepcopy
+from itertools import permutations
 from pathlib import Path
 
 from decision_record import check_record
@@ -47,6 +48,23 @@ def add_fusion(data, bazi="A", ziwei="B", **values):
         "ziwei": {"primary": ziwei, "record_ref": "synthetic:ziwei-record"},
         "override_reason": "", "discriminator_ids": [], **values,
     }
+
+
+def symmetric_record(version=2):
+    data = record()
+    data["schema_version"] = version
+    data["candidate_reviews"] = [
+        {"id": "A", "support_ids": ["D"], "counterevidence_ids": [], "required_unknowns": [],
+         "strongest_alternative": "B", "discriminator_ids": ["D"],
+         "comparison": "甲声明有 D，乙尚无对应支持；乙未知仍不是反证。"},
+        {"id": "B", "support_ids": [], "counterevidence_ids": [], "required_unknowns": ["合成条件乙"],
+         "strongest_alternative": "A", "discriminator_ids": ["D"],
+         "comparison": "乙尚无独有支持，甲声明有 D；不能由此认定乙未发生。"},
+        {"id": "C", "support_ids": [], "counterevidence_ids": [], "required_unknowns": ["合成条件丙"],
+         "strongest_alternative": "A", "discriminator_ids": [],
+         "comparison": "丙与甲的现实事件仍待查；无已知反证，不声明丙胜出。"},
+    ]
+    return data
 
 
 class DecisionRecordTests(unittest.TestCase):
@@ -187,6 +205,162 @@ class DecisionRecordTests(unittest.TestCase):
         data = record()
         data["candidates"][0]["claims"][0]["state"] = "known"
         self.assertIn("known_without_user_fact", codes(check_record(data)))
+
+    def test_symmetric_v2_and_opt_in_v1_preserve_primary_and_allow_weak_alternatives(self):
+        self.assertEqual(check_record(record())["review_standard"], "legacy_v1")
+        for version in (1, 2):
+            with self.subTest(version=version):
+                data = symmetric_record(version)
+                before = deepcopy(data)
+                result = check_record(data)
+                self.assertTrue(result["record_valid"])
+                self.assertEqual(result["effective_status"], "relative_basis_declared")
+                self.assertEqual(result["review_standard"], "symmetric")
+                self.assertEqual(result["primary"], "A")
+                self.assertEqual(data, before)
+
+    def test_v2_missing_whole_or_partial_reviews_is_unresolved_not_legacy(self):
+        for keep in (None, [], [0, 1]):
+            with self.subTest(keep=keep):
+                data = symmetric_record()
+                if keep is None:
+                    del data["candidate_reviews"]
+                else:
+                    data["candidate_reviews"] = [data["candidate_reviews"][i] for i in keep]
+                result = check_record(data)
+                self.assertTrue(result["record_valid"])
+                self.assertEqual(result["effective_status"], "unresolved")
+                self.assertIn("incomplete_candidate_reviews", codes(result))
+
+    def test_against_list_cannot_replace_any_candidates_actual_comparison(self):
+        for i in range(3):
+            with self.subTest(candidate=i):
+                data = symmetric_record()
+                data["candidate_reviews"][i]["comparison"] = "  "
+                self.assertIn("missing_candidate_comparison", codes(check_record(data)))
+
+    def test_strongest_alternative_cannot_be_missing_or_self(self):
+        for value in (None, "B"):
+            data = symmetric_record()
+            data["candidate_reviews"][1]["strongest_alternative"] = value
+            self.assertIn("missing_review_alternative", codes(check_record(data)))
+        data = symmetric_record()
+        data["candidate_reviews"][0]["strongest_alternative"] = "C"
+        self.assertIn("inconsistent_primary_alternative", codes(check_record(data)))
+
+    def test_retaining_baseline_in_fusion_has_no_review_exemption(self):
+        for ziwei in ("A", "B"):
+            with self.subTest(ziwei=ziwei):
+                data = symmetric_record()
+                add_fusion(data, ziwei=ziwei, override_reason="按同一条件 D 比较后保留甲。", discriminator_ids=["D"])
+                self.assertEqual(check_record(data)["effective_status"], "relative_basis_declared")
+                data["candidate_reviews"] = data["candidate_reviews"][1:]
+                result = check_record(data)
+                self.assertEqual(result["primary"], "A")
+                self.assertIn("incomplete_candidate_reviews", codes(result))
+
+    def test_any_candidates_declared_support_counter_and_unknowns_must_be_reviewed(self):
+        data = symmetric_record()
+        data["candidate_reviews"][0]["support_ids"] = []
+        self.assertIn("incomplete_evidence_review", codes(check_record(data)))
+        data = symmetric_record()
+        data["candidate_reviews"][1]["required_unknowns"] = []
+        self.assertIn("incomplete_unknown_review", codes(check_record(data)))
+        data = symmetric_record()
+        data["candidates"][2]["claims"][0].update(state="contradicted", evidence_ids=["BG"])
+        data["candidate_reviews"][2]["required_unknowns"] = []
+        self.assertIn("incomplete_evidence_review", codes(check_record(data)))
+        data["candidate_reviews"][2]["counterevidence_ids"] = ["BG"]
+        self.assertEqual(check_record(data)["effective_status"], "relative_basis_declared")
+
+    def test_unknown_enrollment_or_missing_learning_support_cannot_prove_noncompletion(self):
+        for status in ("unknown", "missing_support"):
+            with self.subTest(status=status):
+                data = symmetric_record()
+                data["evidence"].append({"id": "U", "kind": "traditional_interpretation", "scope": "discriminator",
+                                         "status": status, "source_ref": "synthetic:education",
+                                         "statement": "入学情况未知，或未找到学习支持；不是未毕业的事实。"})
+                data["candidates"][1]["claims"][0].update(text="已完成课程", state="unknown", evidence_ids=["U"])
+                review = data["candidate_reviews"][1]
+                review["required_unknowns"] = ["已完成课程"]
+                self.assertEqual(check_record(data)["effective_status"], "relative_basis_declared")
+                review["counterevidence_ids"] = ["U"]
+                result = check_record(data)
+                self.assertIn("unavailable_as_counterevidence", codes(result))
+                self.assertEqual(data["candidates"][1]["claims"][0]["state"], "unknown")
+                data["candidates"][1]["claims"][0]["state"] = "contradicted"
+                self.assertIn("unavailable_as_claim_evidence", codes(check_record(data)))
+                data["candidates"][0]["claims"][0].update(text="未毕业", evidence_ids=["U"])
+                data["candidate_reviews"][0].update(support_ids=["U"], discriminator_ids=["U"])
+                data["comparison"]["discriminator_ids"] = ["U"]
+                result = check_record(data)
+                self.assertIn("unavailable_as_support", codes(result))
+                self.assertIn("unavailable_as_discriminator", codes(result))
+
+    def test_primary_unknown_remains_unresolved_even_if_every_alternative_is_weaker(self):
+        data = symmetric_record()
+        data["candidates"][0]["claims"].append({"text": "此前持续修读", "state": "unknown", "evidence_ids": []})
+        data["candidate_reviews"][0]["required_unknowns"] = ["此前持续修读"]
+        result = check_record(data)
+        self.assertIn("primary_unknown_claim", codes(result))
+        self.assertIn("review_required_unknowns", codes(result))
+        self.assertNotIn("primary_contradicted", codes(result))
+
+    def test_unknown_claim_reference_cannot_double_as_its_candidates_counterevidence(self):
+        data = symmetric_record()
+        data["candidates"][1]["claims"][0]["evidence_ids"] = ["D"]
+        data["candidate_reviews"][1]["counterevidence_ids"] = ["D"]
+        result = check_record(data)
+        self.assertIn("unknown_claim_as_counterevidence", codes(result))
+        self.assertEqual(result["effective_status"], "unresolved")
+        self.assertEqual(result["primary"], "A")
+
+    def test_medical_and_legal_compatibility_cannot_become_known_facts(self):
+        for text in ("已确诊某疾病", "已依法登记离婚"):
+            with self.subTest(claim=text):
+                data = symmetric_record()
+                data["candidates"][0]["claims"][0].update(text=text, state="supported")
+                compatible = check_record(data)
+                self.assertEqual(compatible["effective_status"], "relative_basis_declared")
+                self.assertNotIn("verified_fact", compatible)
+                data["candidates"][0]["claims"][0]["state"] = "known"
+                self.assertIn("known_without_user_fact", codes(check_record(data)))
+
+    def test_candidate_order_does_not_change_conclusion_or_issue_codes(self):
+        for missing_review in (False, True):
+            data = symmetric_record()
+            if missing_review:
+                data["candidate_reviews"].pop()
+            expected = check_record(data)
+            for order in permutations(data["candidates"]):
+                permuted = deepcopy(data)
+                permuted["candidates"] = list(order)
+                permuted["candidate_reviews"].reverse()
+                permuted["comparison"]["against"].reverse()
+                actual = check_record(permuted)
+                self.assertEqual(actual["effective_status"], expected["effective_status"])
+                self.assertEqual(actual["primary"], expected["primary"])
+                self.assertEqual(codes(actual), codes(expected))
+
+    def test_symmetric_bad_references_duplicates_and_types_are_invalid(self):
+        for location in ("candidate", "alternative", "evidence", "duplicate", "array", "entry", "status"):
+            with self.subTest(location=location):
+                data = symmetric_record()
+                if location == "candidate":
+                    data["candidate_reviews"][0]["id"] = "absent"
+                elif location == "alternative":
+                    data["candidate_reviews"][0]["strongest_alternative"] = "absent"
+                elif location == "evidence":
+                    data["candidate_reviews"][0]["counterevidence_ids"] = ["absent"]
+                elif location == "duplicate":
+                    data["candidate_reviews"].append(deepcopy(data["candidate_reviews"][0]))
+                elif location == "array":
+                    data["candidate_reviews"] = {}
+                elif location == "entry":
+                    data["candidate_reviews"] = [None]
+                else:
+                    data["evidence"][0]["status"] = []
+                self.assertFalse(check_record(data)["record_valid"])
 
     def test_cli_exits_zero_for_unresolved_and_nonzero_for_invalid(self):
         example = (ROOT / "assets/decision-record.example.json").read_text(encoding="utf-8")

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "target": {
     "subject": "合成练习人物甲（无真实命例）",
     "event_stage": "课程结业窗口的条件比较",
@@ -10,13 +10,14 @@
       "id": "A",
       "claims": [
         {"text": "T1 出现课程结业支持", "state": "supported", "evidence_ids": ["D1"]},
-        {"text": "此前已入学且持续修读", "state": "unknown", "evidence_ids": []}
+        {"text": "此前已入学且持续修读", "state": "unknown", "evidence_ids": ["U1"]}
       ]
     },
     {
       "id": "B",
       "claims": [
-        {"text": "T1 仅出现短期学习接触", "state": "supported", "evidence_ids": ["BG1"]}
+        {"text": "T1 出现一般学习主题", "state": "supported", "evidence_ids": ["BG1"]},
+        {"text": "T1 尚未完成课程", "state": "unknown", "evidence_ids": ["U1"]}
       ]
     }
   ],
@@ -34,6 +35,14 @@
       "scope": "discriminator",
       "source_ref": "references/event-discrimination.md#E-EDU（操作假设，非预测验证）",
       "statement": "合成假设：产出与考核完成的承接在 T1 较突出；这里只演示条件声明。"
+    },
+    {
+      "id": "U1",
+      "kind": "user_fact",
+      "scope": "background",
+      "status": "unknown",
+      "source_ref": "合成题面/未提供修读及结业情况",
+      "statement": "修读与结业事实均未知；不能把它用作未毕业的反证或正证。"
     }
   ],
   "primary": "A",
@@ -41,9 +50,29 @@
   "comparison": {
     "against": ["B"],
     "discriminator_ids": ["D1"],
-    "why_distinguishes": "D1 声明了完成环节，BG1 只涉及接触；这仍不能确认已结业。",
+    "why_distinguishes": "D1 声明了完成环节，BG1 只涉及一般学习；这仍不能确认已结业，也不能确认尚未结业。",
     "counterevidence": "完成主题也可能对应工作考核；若没有持续修读过程，应撤回课程结业解释。",
     "required_unknowns": ["此前是否入学并持续修读"]
   },
+  "candidate_reviews": [
+    {
+      "id": "A",
+      "support_ids": ["D1"],
+      "counterevidence_ids": [],
+      "required_unknowns": ["此前已入学且持续修读"],
+      "strongest_alternative": "B",
+      "discriminator_ids": ["D1"],
+      "comparison": "A声明有完成环节的支持，B只有一般学习主题；但工作考核也可能解释D1，修读事实未知，保留A不等于证明结业。"
+    },
+    {
+      "id": "B",
+      "support_ids": ["BG1"],
+      "counterevidence_ids": [],
+      "required_unknowns": ["T1 尚未完成课程"],
+      "strongest_alternative": "A",
+      "discriminator_ids": ["D1"],
+      "comparison": "B的一般学习主题与A相容，却没有证明未结业的依据；D1使A的完成解释可讨论，但U1不是反证，现实状态仍无法区分。"
+    }
+  ],
   "decision_mode": "conditional"
 }

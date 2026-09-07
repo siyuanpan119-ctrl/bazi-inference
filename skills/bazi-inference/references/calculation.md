@@ -4,7 +4,7 @@
 
 ## 从用户三项资料启动
 
-用户只需给出生日期时间、性别、出生地城市。宿主 AI 将自然语言解析成 JSON，并从用户给定的观察日期或当前会话日期传入 `as_of`。程序不把某一年写死成“现在”，也不默认缺失的出生时刻是午夜。
+用户只需给出生日期时间、性别、出生地城市。宿主 AI 将自然语言解析成 JSON；直接咨询从用户给定日期或当前会话日期传入 `as_of`，历史题只给观察年份则保留 `observation_year`，不补月日。程序不把某一年写死成“现在”，也不默认缺失的出生时刻是午夜。
 
 ```json
 {
@@ -23,7 +23,17 @@ python3 scripts/report_engine.py --input assets/birth-input.example.json --as-of
 
 程序使用 Python 3.10+ 标准库、随包固定的 MIT 授权 Astronomy Engine 源码与可用的 IANA 时区资料，无需在线下载星历后端。若环境没有时区数据，宿主须安装并记录 `tzdata` 版本，不能改用固定 UTC 偏移冒充历史时区。运行期间无网络请求；输入和报告不会自动上传。
 
-`generate_report(request, *, as_of, years=None)` 是对应 Python API。若不显式传 `years`，使用请求中的 `years`，再否则使用 `as_of` 所在公历年对应的立春年。
+`generate_report(request, *, as_of=None, years=None)` 是对应 Python API。精确日期模式仍显式传 `as_of="YYYY-MM-DD"`；若不显式传 `years`，使用请求中的 `years`，再否则使用 `as_of` 所在公历年对应的立春年，与旧接口一致。
+
+仅知观察年份时，传 `request.observation_year`（整数），省略 `as_of`；CLI可用 `--as-of-year YYYY` 写入此字段，也可直接从输入JSON读取。它与 `--as-of` 互斥；API也拒绝同时提供年份和精确日期，避免把锚点升格为真实观察日期。CLI与JSON给了不一致的观察年份时拒绝运行。
+
+```bash
+python3 scripts/report_engine.py --input assets/birth-input.example.json --as-of-year 2013 --output /tmp/bazi-year-context.json --markdown /tmp/bazi-year-context.md
+```
+
+年份模式输出 `as_of=null`、`observation.precision="year"`、`observation.date=null`；`observation.interval` 为该年元旦至次年元旦的半开区间，列出所用出生地时区与对应UTC端点。`observation.calculation_anchor` 记录7月1日及 `is_observation_date=false`，仅供需要代表值的下游接口使用，主引擎按全年求交，不以锚点代替“目前”。接口支持1901—2100观察年，以确保前一立春年也在年度引擎支持范围。
+
+`annual_reports` 自动并入前一立春年与当年，不因显式 `years` 筛选漏掉元旦至立春；显式年份是追加资料。出生当年标为 `observation.coverage="partial_birth_year"`，纯出生前的立春年列在 `pre_birth_solar_years` 并不自动生成。`nominal_coverage` 与 `nominal_effective_start_utc` 只按名义出生瞬间记录；出生不确定窗口跨观察年元旦时，`coverage="uncertain_birth_year_boundary"`，`coverage_candidates` 保留 `complete_year` / `partial_birth_year` 两种覆盖，不能用代表钟点消除分歧，严格与非严格模式均如此。`coverage_basis` 说明所用窗口依据。`observation.dayun_segments` 另保留公历观察全年实际相交的交运段及操作误差；起运前与九步大运之后的时段另有标志，不能假称已有全寿程大运。严格出生边界未解时仍暂停年度/大运资料并标 `dayun_segments_status="withheld_birth_boundary"`，相关起运前/超出大运范围标志及 `pre_birth_solar_years` 置为null；观察区间完整不等于已经完成分支解释。
 
 ## 地点解析和时制
 
@@ -47,6 +57,16 @@ python3 scripts/report_engine.py --input assets/birth-input.example.json --as-of
 ```
 
 外部来源字段是调用者的可审计声明，程序并未联网验证该页面包含所填值。输入真太阳时经度时必须同时提供 `longitude_source`；经度东正西负，且需记录城市中心或精确地点的分辨率。只提供时辰范围时不能伪装成精确出生分钟；宿主可保留所有时刻候选，或使用明确标记的中心与 `time_uncertainty_minutes` 做边界检查。单次不确定区间上限为前后 24 小时，跨夏令时切换要拆开解析。
+
+外部 `birthplace` 对象可显式加 `"status":"scenario"`，表示条件性地点。输出 `birthplace_resolution.status` 原样保留 `scenario`，不会因提供了时区来源而升格为 `resolved`；`interpretation_must_be_conditional_on_birthplace=true` 和Markdown也注明非已确认出生城市。省略状态沿用旧接口的调用方 `resolved` 声明，不是引擎查证；情景地点应使用此对象形式。未知状态或必要地点/来源缺失返回 `needs_resolution`，不凭城市名称中的文字猜测状态。
+
+出生仅有时辰而用代表钟点调用时，显式传 `time_precision="shichen"` 及正数 `time_uncertainty_minutes`；例如代表08:00、前后60分钟。未给范围或填0返回 `needs_resolution`，不能把代表值当作精确分钟。`birth_time_precision` 保存代表值标志、输入钟面窗口端点与口径，范围继续传入节气、时辰及起运误差检查。时间精度也接受 `clock`（缺省）、`minute`、`second`；它们表示输入声明，不是独立核验。布尔、非数字、负数、非有限数及超过1440分钟的半径均不可用。
+
+注意：此对称窗口调用现有引擎的**保守端点检查**，不是新的半开时辰解析器。已明确辰时的原始区间仍是 `[07:00,09:00)`，09:00不能改称真实可能出生时刻；程序因窗口端点产生的邻盘仅是保守核验提示，不证明原始时辰跨界。须保留原始范围、其端点含义和已定地支，按这些资料核验或独立建立合法分支；不能伪填59.999分钟来绕过边界。
+
+需要在此保守门槛下继续准备情景底稿时，可显式设置 `strict_boundary=false`，仍保留 `time_precision="shichen"`、代表钟点及真实的 `time_uncertainty_minutes`。例如已明确采用标准时地支的辰时，可用08:00与前后60分钟生成底稿，但原始资料仍是 `[07:00,09:00)`、不是出生于08:00。未解状态仍为 `needs_verification`，四柱标 `nominal_pillars_only=true`；非严格模式只是开放年度和大运计算资料，不表示候选已经核实。
+
+宿主负责按原始范围及钟面口径确认合法分支：上述标准时辰时若区间内没有真实节气、换日或时制变化，只有辰时，保守探针生成的07:00之前或09:00邻盘不列为实际出生候选；若存在真实边界，则按实际相交段独立重算与比较。保存合法分支、排除端点邻盘的理由和原输入，不能只将 `strict_boundary` 关掉就宣称稳定。继续使用 `chart.luck.age_margin_years_operational` 与 `dayun` 的日期误差，跨交运范围保留两段；中心报告不提供精确出生分钟或精确交运日。这一路径让普通已定时辰仍可获得条件性完整底稿，而不需要改写历法核心或伪造分钟。
 
 以真实 UTC 瞬间为基准，`standard` 从原民用钟面扣除当时夏令时，不把出生瞬间整体平移。若原资料已扣过夏令时，用 `input_basis=standard` 防止重复扣减。跳时造成不存在的钟面时间必须补资料；回拨造成的重叠时间必须给出 `fold=0/1`。
 
@@ -95,7 +115,7 @@ python3 scripts/report_engine.py --input assets/birth-input.example.json --as-of
 
 出生时间的不确定性和事件时间的不确定性分开处理。问“公历某月”时，以该地月初至下月初为区间，与节月和大运段求交；不能把公历五月直接当巳月。保存每个相交段的首选及依据；排序改变则报告时段依赖，事件具体日期未知时不挑有利的一段概括整月。
 
-题目将“目前”限定到某年但没有月日时，保存 `observation_year` 和未知的月日，计算覆盖全年相关段。接口必须传单日 `as_of` 时，可用明确标记的计算锚点生成资料；锚点不是观察日期，不得用其年龄、当前大运或状态代替全年比较。出生城市只用于共用时区解析时仍保留真实城市名称，不把共用时区的首府写成出生地。
+题目将“目前”限定到某年但没有月日时，按上面的年份接口保存 `observation_year` 和未知的月日，计算覆盖全年相关段。下游接口若必须传单日，可用明确标记的计算锚点生成资料；锚点不是观察日期，不得用其年龄、当前大运或状态代替全年比较。出生城市只用于共用时区解析时仍保留真实城市名称，不把共用时区的首府写成出生地。
 
 `decision-record.md` 的分支字段记录实际分析过的各段；期望分支清单来自本层计算。清单未提供时，检查器不能知道是否漏算，因此不能宣称完整覆盖。
 

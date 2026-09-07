@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
@@ -15,7 +15,9 @@
     "candidate discrimination and branch-complete inference",
     "complete scoped Ziwei evidence context and Gregorian-year segmentation",
     "condition-based event discrimination and symmetric conflict handling",
-    "candidate-level decision records with explicit unresolved states and branch coverage checks"
+    "candidate-level decision records with explicit unresolved states and branch coverage checks",
+    "symmetric review of every candidate including retained baseline choices",
+    "year-only observation scope and explicit time and place scenarios"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",

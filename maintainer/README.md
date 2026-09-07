@@ -4,6 +4,8 @@
 
 工作原则是先固定推演方法和预测，后核对答案，再形成通用修订。历史答案只能帮助提出改动；是否提升命中率，需要在答案未知的新命例上比较旧版和新版。
 
+0.4.1 / 0.4.2 的[下一轮最小配对协议](references/next-trial.md)及[待题计划](assets/next-trial.json)已准备，状态为 `awaiting_questions`。它复用现有冻结、预检和评分工具；尚未产生正式题目、实验哈希或准确率结果。
+
 完整操作、JSON 格式和 CLI 命令见 [维护流程](references/iteration.md)。默认候选规则库位于 [assets/rule-registry.json](assets/rule-registry.json)。这些卡片是维护记录，不是普通用户必须逐一读取的算命步骤；面向使用者的有效通用方法写入技能教学文档后发布。
 
 v0.3.0增加[多方法对照](references/multi-method-trial.md)及事前资料检查：保存完整技能文件与实际宿主设置，分别运行八字和紫微，并保留组合改对与改错的数量。原答卷有空证据或占位字段时仍如实评分，但不宣称完整推断程序已执行。[本轮开发复盘](references/review-v030.md)给出汇总和具体方法改动。

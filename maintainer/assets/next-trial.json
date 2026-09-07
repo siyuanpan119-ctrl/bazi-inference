@@ -1,0 +1,60 @@
+{
+  "schema_version": "paired-version-preflight-1.0",
+  "trial_id": "next-paired-v041-v042",
+  "status": "awaiting_questions",
+  "change_package": "symmetric-candidate-review-and-input-precision",
+  "change_package_scope": "对称候选审查与输入时间精度作为单个组合包；不归因到单条规则",
+  "run_root": null,
+  "run_directory_policy": "收到新题后创建全新私有目录；不得复用或覆盖旧实验目录",
+  "questions_file": null,
+  "expected_question_count": null,
+  "question_persons": {},
+  "development_person_ids": null,
+  "evaluation_person_ids": [],
+  "repetitions": 1,
+  "stem_only_control": false,
+  "context_policy": "isolated_no_keys_no_other_arms",
+  "fusion_policy_file": "policy/change-package.md",
+  "scoring_policy": {
+    "primary_only": true,
+    "retain_all_questions": true,
+    "report_coverage": true
+  },
+  "arms": {
+    "old": {
+      "version": "0.4.1",
+      "source_revision": "8621f4623580184822ef1c6cc26d543687332eae",
+      "public_source_revision": "bb3631c2e2fe5019e618a256620caa28b06df30d",
+      "skill_root": "snapshots/old",
+      "records_file": "outputs/old/submission.json",
+      "input_sha256": null,
+      "skill_sha256": null,
+      "host": {
+        "model_id": "unknown",
+        "model_version": "unknown",
+        "reasoning_effort": "unknown",
+        "instructions_version": "unknown",
+        "max_output_tokens": "unknown",
+        "sampling": "unknown"
+      }
+    },
+    "new": {
+      "version": "0.4.2",
+      "source_revision": null,
+      "skill_root": "snapshots/new",
+      "records_file": "outputs/new/submission.json",
+      "input_sha256": null,
+      "skill_sha256": null,
+      "host": {
+        "model_id": "unknown",
+        "model_version": "unknown",
+        "reasoning_effort": "unknown",
+        "instructions_version": "unknown",
+        "max_output_tokens": "unknown",
+        "sampling": "unknown"
+      }
+    }
+  },
+  "results": null,
+  "prediction_accuracy_validated": false
+}

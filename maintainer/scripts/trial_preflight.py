@@ -1,4 +1,4 @@
-"""Read-only readiness checks for declared three-arm trials; no accuracy claims.
+"""Read-only readiness checks for historical three-arm or paired-version trials.
 
 The output hashes actual artifacts. It neither certifies truthful reasoning nor
 proves when an artifact existed. Existing submissions/scorers are not modified.
@@ -11,6 +11,9 @@ import json
 from pathlib import Path
 import re
 
+from benchmark import load_json
+from event_rules import _reject_answer_fields, validate_record
+
 
 ARMS = ("v020-bazi", "v030-bazi", "v030-bazi-ziwei")
 TRACE_FIELDS = ("natal_premise", "target", "luck_context", "supporting_condition",
@@ -22,6 +25,60 @@ EXCLUDED = {".git", "__pycache__", "node_modules", ".pytest_cache", ".mypy_cache
             "reports", "local-data", "private-data", "evaluations"}
 PLACEHOLDER = re.compile(r"原题选项|原題選項|命题所问对象|命題所問對象|待填写|待填寫|待补充|TODO|TBD", re.I)
 UNKNOWN = {"", "unknown", "unspecified", "n/a", "none", "未知", "未提供"}
+PAIRED_SCHEMA = "paired-version-preflight-1.0"
+
+
+def paired_inputs(plan, root):
+    """Small paired-mode extension; reuse the historical audits and hashes."""
+    path = resolve_artifact(root, plan.get("questions_file"))
+    data = load_json(path)
+    _reject_answer_fields(data)
+    questions = data.get("questions") if isinstance(data, dict) else None
+    if not isinstance(questions, list) or not questions:
+        raise ValueError("questions_file must contain the actual nonempty question set")
+    indexed = {}
+    for question in questions:
+        if not isinstance(question, dict):
+            raise ValueError("Each question must be a JSON object")
+        qid = question.get("question_id")
+        options = question.get("options")
+        if (not isinstance(qid, str) or not qid or qid in indexed
+                or not atom_text(question.get("person_id"))
+                or not atom_text(question.get("stem"))
+                or "observation_year" not in question
+                or (question["observation_year"] is not None
+                    and type(question["observation_year"]) is not int)
+                or not isinstance(options, dict) or len(options) < 2
+                or any(not atom_text(k) or not atom_text(v) for k, v in options.items())):
+            raise ValueError("Each actual question needs a unique id, person, stem, year and complete options")
+        indexed[qid] = question
+    if {qid: q["person_id"] for qid, q in indexed.items()} != plan.get("question_persons"):
+        raise ValueError("questions_file and question_persons differ")
+    return indexed, file_manifest(path, root)
+
+
+def audit_paired_records(records, questions, input_hash, arm):
+    issues = []
+    counts = {"unresolved": 0, "forced_guess": 0, "abstain": 0, "stated_in_prompt": 0}
+    if arm.get("input_sha256") != input_hash:
+        issues.append("input_hash_missing_or_changed")
+    for record in records:
+        validate_record(record)
+        qid = record["question_id"]
+        question = questions.get(qid)
+        if question is None:
+            continue  # Existing complete-set audit reports this mismatch.
+        if (record.get("original_stem") != question["stem"]
+                or "observation_year" not in record
+                or record["observation_year"] != question["observation_year"]
+                or {c["id"]: c.get("text") for c in record["candidates"]} != question["options"]):
+            issues.append(qid + ": original_question_year_or_options_changed")
+        selection = record["selection"]
+        if "backup" not in selection or type(selection.get("unresolved")) is not bool:
+            issues.append(qid + ": backup_or_unresolved_not_frozen")
+        counts["unresolved"] += selection.get("unresolved") is True
+        counts[selection["status"]] += 1
+    return issues, counts
 
 
 def canonical(value):
@@ -196,12 +253,32 @@ def audit_records(records, expected_ids, combined):
 def preflight(plan_path, root):
     root = Path(root).resolve()
     plan_path = resolve_artifact(root, str(plan_path))
-    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan = load_json(plan_path)
+    paired = plan.get("schema_version") == PAIRED_SCHEMA
+    if paired:
+        _reject_answer_fields(plan)
+        if plan.get("status") == "awaiting_questions":
+            if (plan.get("questions_file") is not None or plan.get("question_persons")
+                    or plan.get("expected_question_count") is not None):
+                raise ValueError("awaiting_questions must not contain invented question artifacts")
+            snapshot = {"plan": file_manifest(plan_path, root)}
+            return {"schema_version": PAIRED_SCHEMA, "trial_id": plan.get("trial_id"),
+                    "status": "awaiting_questions", "issues": ["actual_questions_not_received"],
+                    "comparable_protocol_declared": False, "descriptive_scoring_ready": False,
+                    "snapshot": snapshot, "snapshot_sha256": digest(canonical(snapshot)),
+                    "prediction_accuracy_validated": False}
+        if plan.get("status") != "predictions_frozen":
+            raise ValueError("Paired preflight status must be awaiting_questions or predictions_frozen")
     issues, model_values, arms, snapshots = [], [], {}, {}
     people = plan.get("question_persons", {})
     if not isinstance(people, dict) or not people or any(not isinstance(v, str) or not v for v in people.values()):
         raise ValueError("question_persons must declare the complete question-to-person mapping")
     expected_ids = list(people)
+    questions, question_file = paired_inputs(plan, root) if paired else ({}, None)
+    if paired and (plan.get("repetitions") != 1 or plan.get("stem_only_control") is not False):
+        raise ValueError("This minimal paired protocol fixes one repetition and no stem-only arm")
+    if paired and plan.get("context_policy") != "isolated_no_keys_no_other_arms":
+        issues.append("isolated_context_and_no_answer_access_not_declared")
     if plan.get("expected_question_count") != len(expected_ids):
         issues.append("declared_full_question_count_mismatch")
     development = set(plan.get("development_person_ids", []))
@@ -215,9 +292,19 @@ def preflight(plan_path, root):
     if not meaningful(fusion.read_text(encoding="utf-8")):
         issues.append("fusion_policy_missing_or_placeholder")
     declarations = plan.get("arms", {})
-    if set(declarations) != set(ARMS):
-        raise ValueError("Declare exactly these arms: " + ", ".join(ARMS))
-    for name in ARMS:
+    arm_names = ("old", "new") if paired else ARMS
+    if set(declarations) != set(arm_names):
+        raise ValueError("Declare exactly these arms: " + ", ".join(arm_names))
+    if paired:
+        record_paths = [resolve_artifact(root, declarations[name].get("records_file")) for name in arm_names]
+        skill_paths = [resolve_artifact(root, declarations[name].get("skill_root")) for name in arm_names]
+        if (skill_paths[0].is_relative_to(skill_paths[1])
+                or skill_paths[1].is_relative_to(skill_paths[0])):
+            raise ValueError("Old/new skill snapshots need distinct, non-nested directories")
+        if (record_paths[0].parent == record_paths[1].parent
+                or any(record.is_relative_to(skill) for record in record_paths for skill in skill_paths)):
+            raise ValueError("Old/new outputs need separate directories outside skill snapshots")
+    for name in arm_names:
         arm = declarations[name]
         model = arm.get("host", {})
         if not isinstance(model, dict):
@@ -226,24 +313,46 @@ def preflight(plan_path, root):
                 or model[k].strip().lower() in UNKNOWN for k in MODEL_FIELDS)):
             issues.append(name + ": host_model_or_settings_unknown_not_comparable")
         model_values.append({key: model.get(key) for key in MODEL_FIELDS})
+        if paired:
+            model_values[-1].update(sampling=model.get("sampling"),
+                                    max_output_tokens=model.get("max_output_tokens"))
+            if (not isinstance(model.get("sampling"), dict) or not model["sampling"]
+                    or any(v is None or (isinstance(v, str) and v.strip().lower() in UNKNOWN)
+                           for v in model["sampling"].values())
+                    or type(model.get("max_output_tokens")) is not int
+                    or model["max_output_tokens"] <= 0):
+                issues.append(name + ": host_sampling_or_budget_unknown_not_comparable")
         skill_root = resolve_artifact(root, arm.get("skill_root"))
         record_path = resolve_artifact(root, arm.get("records_file"))
-        records = records_from(json.loads(record_path.read_text(encoding="utf-8")))
+        records = records_from(load_json(record_path))
         arms[name] = audit_records(records, expected_ids, name.endswith("ziwei"))
+        if paired:
+            extra, counts = audit_paired_records(records, questions, question_file["sha256"], arm)
+            arms[name]["issues"].extend(extra)
+            arms[name]["process_complete"] = not arms[name]["issues"]
+            arms[name]["decision_counts"] = counts
         if not arms[name]["process_complete"]:
             issues.append(name + ": process_incomplete")
         snapshots[name] = {"skill_root": skill_root.relative_to(root).as_posix(),
                            "skill": skill_manifest(skill_root),
                            "records": file_manifest(record_path, root), "host": model_values[-1]}
+        if paired and arm.get("skill_sha256") != snapshots[name]["skill"]["sha256"]:
+            issues.append(name + ": declared_skill_hash_missing_or_changed")
     if any(model != model_values[0] for model in model_values[1:]):
         issues.append("host_settings_differ_skill_effect_not_isolated")
-    signatures = [arms[name]["candidate_signatures"] for name in ARMS]
+    signatures = [arms[name]["candidate_signatures"] for name in arm_names]
     if any(value != signatures[0] for value in signatures[1:]):
         issues.append("candidate_content_differs_between_arms")
     snapshot = {"plan": file_manifest(plan_path, root), "fusion": file_manifest(fusion, root),
                 "arms": snapshots}
-    return {"schema_version": "trial-preflight-1.0", "trial_id": plan.get("trial_id"),
-            "status": "process_complete" if not issues else "process_incomplete",
+    if paired:
+        snapshot["questions"] = question_file
+    # Honest unknown/different hosts lower the claim, not prevent raw scoring.
+    blockers = [issue for issue in issues if "host_" not in issue] if paired else issues
+    descriptive_ready = paired and not blockers
+    status = "process_complete" if not issues else "descriptive_ready" if descriptive_ready else "process_incomplete"
+    return {"schema_version": PAIRED_SCHEMA if paired else "trial-preflight-1.0", "trial_id": plan.get("trial_id"),
+            "status": status, "descriptive_scoring_ready": descriptive_ready,
             "comparable_protocol_declared": not issues, "issues": issues, "arms": arms,
             "snapshot": snapshot, "snapshot_sha256": digest(canonical(snapshot)),
             "external_timestamp_verified": False, "reasoning_truth_verified": False,
@@ -287,7 +396,7 @@ def main():
         report = preflight(args.plan, args.root)
         write_new_manifest(report, args.output)
         print(json.dumps({k: report[k] for k in ("status", "issues", "snapshot_sha256")}, ensure_ascii=False))
-        return 0 if report["comparable_protocol_declared"] else 2
+        return 0 if report["comparable_protocol_declared"] or report.get("descriptive_scoring_ready") else 2
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(json.dumps({"status": "invalid_artifact", "error": str(error)}, ensure_ascii=False))
         return 1

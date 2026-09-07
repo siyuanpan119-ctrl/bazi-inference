@@ -5,6 +5,8 @@ All claims are constituent requirements of their complete candidate. ``known``
 means a user-reported real-world fact; ``supported`` means declared structural
 support. Unknown claims in alternatives remain unknown, never contradicted.
 Source and record references are opaque citations, not files loaded by this tool.
+Version 2 (or v1 with candidate_reviews) additionally requires symmetric review;
+it checks declared evidence status, not the truth of natural-language reasons.
 """
 
 import argparse
@@ -18,6 +20,8 @@ LIMITS = [
     "不计算概率、不自动选择或排除候选；relative_basis_declared 不是事件已发生或预测有效。",
     "无法发现未列出的候选；未提供 expected_temporal_branch_ids 时，不能检查遗漏的时间分支。",
     "不同 record_ref 不证明两套分析独立；同票不提高可信度。",
+    "v1 未提供 candidate_reviews 时只做旧版检查；列出 against 不证明已经逐候选审查。",
+    "unknown/missing_support 只按显式标注检查；传统相容不证明医学诊断、法律状态或其他现实事实。",
 ]
 
 
@@ -35,7 +39,7 @@ class _Schema:
         for key in sorted(set(required) - value.keys()):
             self.error(f"{path}.{key}", "缺少字段。")
         for key in sorted(value.keys() - set(required) - set(optional)):
-            self.error(f"{path}.{key}", "未知字段；请使用 v1 字段。")
+            self.error(f"{path}.{key}", "未知字段；请使用文档列出的字段。")
         return True
 
     def string(self, value, path, empty=False, nullable=False):
@@ -87,10 +91,10 @@ def _validate(record):
     required = ("schema_version", "target", "candidates", "evidence", "primary",
                 "strongest_alternative", "comparison", "decision_mode")
     if not s.obj(record, "$", required,
-                 ("temporal_branches", "expected_temporal_branch_ids", "fusion")):
+                 ("temporal_branches", "expected_temporal_branch_ids", "fusion", "candidate_reviews")):
         return s.errors
-    if type(record.get("schema_version")) is not int or record["schema_version"] != 1:
-        s.error("$.schema_version", "必须为整数 1。")
+    if type(record.get("schema_version")) is not int or record["schema_version"] not in (1, 2):
+        s.error("$.schema_version", "必须为整数 1 或 2。")
     target = record.get("target")
     if s.obj(target, "$.target", ("subject", "event_stage", "time_scope")):
         for key in ("subject", "event_stage", "time_scope"):
@@ -105,12 +109,14 @@ def _validate(record):
                          ("known", "supported", "unknown", "contradicted"))
                 s.ids(claim.get("evidence_ids"), here + ".evidence_ids")
     for evidence, path in s.records(record.get("evidence"), "$.evidence",
-                                    ("id", "kind", "scope", "source_ref", "statement")):
+                                    ("id", "kind", "scope", "source_ref", "statement"), ("status",)):
         s.choice(evidence.get("kind"), path + ".kind",
                  ("calculation", "user_fact", "traditional_interpretation"))
         s.choice(evidence.get("scope"), path + ".scope", ("background", "discriminator"))
         for key in ("source_ref", "statement"):
             s.string(evidence.get(key), f"{path}.{key}")
+        if "status" in evidence:
+            s.choice(evidence["status"], path + ".status", ("available", "unknown", "missing_support"))
     for key in ("primary", "strongest_alternative"):
         s.string(record.get(key), f"$.{key}", nullable=True)
     s.choice(record.get("decision_mode"), "$.decision_mode", ("conditional", "forced_choice"))
@@ -121,6 +127,14 @@ def _validate(record):
             s.ids(comparison.get(key), f"$.comparison.{key}")
         for key in ("why_distinguishes", "counterevidence"):
             s.string(comparison.get(key), f"$.comparison.{key}", empty=True)
+    if "candidate_reviews" in record:
+        for review, path in s.records(record["candidate_reviews"], "$.candidate_reviews",
+                                      ("id", "support_ids", "counterevidence_ids", "required_unknowns",
+                                       "strongest_alternative", "discriminator_ids", "comparison")):
+            for key in ("support_ids", "counterevidence_ids", "required_unknowns", "discriminator_ids"):
+                s.ids(review.get(key), f"{path}.{key}")
+            s.string(review.get("strongest_alternative"), path + ".strongest_alternative", nullable=True)
+            s.string(review.get("comparison"), path + ".comparison", empty=True)
     if "expected_temporal_branch_ids" in record:
         s.ids(record["expected_temporal_branch_ids"], "$.expected_temporal_branch_ids")
     if "temporal_branches" in record:
@@ -161,6 +175,13 @@ def _validate(record):
         for j, claim in enumerate(candidate["claims"]):
             for k, value in enumerate(claim["evidence_ids"]):
                 reference(value, evidence_ids, f"$.candidates[{i}].claims[{j}].evidence_ids[{k}]")
+    for i, review in enumerate(record.get("candidate_reviews", [])):
+        path = f"$.candidate_reviews[{i}]"
+        reference(review["id"], candidate_ids, path + ".id")
+        reference(review["strongest_alternative"], candidate_ids, path + ".strongest_alternative")
+        for key in ("support_ids", "counterevidence_ids", "discriminator_ids"):
+            for j, value in enumerate(review[key]):
+                reference(value, evidence_ids, f"{path}.{key}[{j}]")
     for i, branch in enumerate(record.get("temporal_branches", [])):
         reference(branch["primary"], candidate_ids, f"$.temporal_branches[{i}].primary")
     if "fusion" in record:
@@ -175,8 +196,10 @@ def check_record(record):
     """Return JSON-serializable checks without mutating or selecting a candidate."""
     errors = _validate(record)
     data = record if isinstance(record, dict) else {}
+    symmetric = data.get("schema_version") == 2 or "candidate_reviews" in data
     result = {
         "schema_version": 1, "record_valid": not errors,
+        "review_standard": "symmetric" if symmetric else "legacy_v1",
         "effective_status": "invalid" if errors else "relative_basis_declared",
         "primary": data.get("primary"), "strongest_alternative": data.get("strongest_alternative"),
         "decision_mode": data.get("decision_mode"),
@@ -206,7 +229,10 @@ def check_record(record):
     def discriminators(ids, path):
         usable = []
         for identifier in ids:
-            if evidence[identifier]["scope"] == "background":
+            if evidence[identifier].get("status", "available") != "available":
+                issue("unavailable_as_discriminator", path,
+                      f"{identifier} 声明为未知或缺少正面支持，不能用作区分事件的依据。")
+            elif evidence[identifier]["scope"] == "background":
                 issue("background_as_discriminator", path, f"{identifier} 被标为共有背景，不能升级成区分依据。")
             else:
                 usable.append(identifier)
@@ -235,10 +261,77 @@ def check_record(record):
                     issue("primary_unknown_claim", path, "首选完整选项仍有未知子事实；不能由其他子事实补齐。")
             elif not claim["evidence_ids"]:
                 issue("missing_claim_evidence", path, "已知、支持或反向判断须引用依据；缺依据不等于事实不存在。")
+            if claim["state"] != "unknown" and any(
+                    evidence[x].get("status", "available") != "available" for x in claim["evidence_ids"]):
+                issue("unavailable_as_claim_evidence", path,
+                      "未知或缺少正面支持不能充当已知、支持或反向事实的依据。")
             if claim["state"] == "known" and not any(evidence[x]["kind"] == "user_fact" for x in claim["evidence_ids"]):
                 issue("known_without_user_fact", path, "现实已知须引用用户事实，不能仅由计算或传统解释升级。")
             if candidate["id"] == primary and claim["state"] == "contradicted":
                 issue("primary_contradicted", path, "首选包含已声明的反向子事实，须处理冲突。")
+
+    if symmetric:
+        reviews = {item["id"]: item for item in record.get("candidate_reviews", [])}
+        missing = set(candidates) - set(reviews)
+        if missing:
+            issue("incomplete_candidate_reviews", "$.candidate_reviews",
+                  "同一标准须审查所有候选（含保留的基线首选）；缺少：" + ", ".join(sorted(missing)))
+        for i, review in enumerate(record.get("candidate_reviews", [])):
+            path = f"$.candidate_reviews[{i}]"
+            candidate = candidates[review["id"]]
+            alternative = review["strongest_alternative"]
+            if alternative is None or alternative == review["id"]:
+                issue("missing_review_alternative", path + ".strongest_alternative",
+                      "每个候选须声明另一个最强备选，不得因其不是首选而省略。")
+            if not review["comparison"].strip():
+                issue("missing_candidate_comparison", path + ".comparison",
+                      "须记录该候选相对最强备选的实际比较；可以明确较弱或无法区分。")
+            for key in ("support_ids", "counterevidence_ids"):
+                for identifier in review[key]:
+                    if evidence[identifier].get("status", "available") != "available":
+                        role = "support" if key == "support_ids" else "counterevidence"
+                        issue("unavailable_as_" + role, path + "." + key,
+                              f"{identifier} 声明为未知或缺少正面支持，不能当作支持或反证。")
+            if set(review["support_ids"]) & set(review["counterevidence_ids"]):
+                issue("ambiguous_evidence_role", path,
+                      "同一依据同时列作该候选的支持和反证；须拆清不同主张及作用。")
+            support = {x for claim in candidate["claims"] if claim["state"] in ("known", "supported")
+                       for x in claim["evidence_ids"]}
+            counter = {x for claim in candidate["claims"] if claim["state"] == "contradicted"
+                       for x in claim["evidence_ids"]}
+            unknowns = {claim["text"] for claim in candidate["claims"] if claim["state"] == "unknown"}
+            unknown_evidence = {x for claim in candidate["claims"] if claim["state"] == "unknown"
+                                for x in claim["evidence_ids"]}
+            if unknown_evidence.intersection(review["counterevidence_ids"]):
+                issue("unknown_claim_as_counterevidence", path + ".counterevidence_ids",
+                      "未知子事实所引依据不能同时用作该候选反证；若作用于不同子事实，须拆清依据及作用。")
+            if not support.issubset(review["support_ids"]) or not counter.issubset(review["counterevidence_ids"]):
+                issue("incomplete_evidence_review", path,
+                      "候选已声明的支持及反向子事实依据须分别纳入审查，基线与备选同标准。")
+            if set(review["support_ids"]) - support:
+                issue("unlinked_candidate_support", path + ".support_ids",
+                      "支持须连接该候选已知或相容的子事实，不能用其他候选的缺口补齐。")
+            if not unknowns.issubset(review["required_unknowns"]):
+                issue("incomplete_unknown_review", path + ".required_unknowns",
+                      "候选未知子事实须按原 text 列入未知清单，不能漏掉或改作反证。")
+            reviewed_discriminators = discriminators(review["discriminator_ids"], path + ".discriminator_ids")
+            pair_evidence = set(review["support_ids"]) | set(review["counterevidence_ids"])
+            if alternative in reviews:
+                pair_evidence.update(reviews[alternative]["support_ids"])
+                pair_evidence.update(reviews[alternative]["counterevidence_ids"])
+            if set(reviewed_discriminators) - pair_evidence:
+                issue("unlinked_review_discriminator", path + ".discriminator_ids",
+                      "比较依据须连接本候选或所比较备选的支持/反证；不能只列一个无关联的 ID。")
+            if review["id"] == primary:
+                if alternative != record["strongest_alternative"]:
+                    issue("inconsistent_primary_alternative", path + ".strongest_alternative",
+                          "首选审查与总记录须采用同一最强备选。")
+                if set(declared) - set(reviewed_discriminators):
+                    issue("unreviewed_primary_discriminator", path + ".discriminator_ids",
+                          "总记录首选所用区分依据须纳入它自己的对称审查。")
+                if review["required_unknowns"]:
+                    issue("review_required_unknowns", path + ".required_unknowns",
+                          "首选仍有必要未知前提；保留条件，不能由备选更弱补足。")
 
     branches = record.get("temporal_branches", [])
     if "temporal_branches" in record and not branches:

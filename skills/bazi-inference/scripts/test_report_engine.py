@@ -1,8 +1,11 @@
 """Report interfaces, provenance and ambiguity gates; not predictive-validity tests."""
 import json
+import subprocess
+import sys
 import unittest
 from copy import deepcopy
 from datetime import datetime
+from pathlib import Path
 
 from report_engine import generate_report, resolve_birthplace, stem_relations
 
@@ -38,6 +41,53 @@ class ResolutionTests(unittest.TestCase):
         self.assertEqual(result["status"],"ready_with_limitations")
         self.assertEqual(result["birthplace_resolution"]["resolution"],"caller_asserted_with_source")
 
+    def test_external_scenario_preserves_place_and_provenance(self):
+        place = {"status": "scenario", "city": "Paris", "timezone": "Europe/Paris",
+                 "timezone_source": "https://data.iana.org/time-zones/tzdb/europe"}
+        original = request(birthplace=place)
+        before = deepcopy(original)
+        result = generate_report(original, as_of="2022-01-01")
+        self.assertEqual(original, before)
+        self.assertEqual(result["input"], before)
+        self.assertEqual(result["status"], "ready_with_limitations")
+        for key in ("status", "city", "timezone", "timezone_source"):
+            self.assertEqual(result["birthplace_resolution"][key], place[key])
+        self.assertTrue(result["interpretation_must_be_conditional_on_birthplace"])
+        self.assertIn("非已确认出生城市", result["report_markdown"])
+        for override in ({"timezone_source": None}, {"status": "unverified"}):
+            incomplete = generate_report(request(birthplace={**place, **override}), as_of="2022-01-01")
+            self.assertEqual(incomplete["status"], "needs_resolution")
+            self.assertNotIn("chart", incomplete)
+
+    def test_shichen_requires_an_explicit_valid_uncertainty_window(self):
+        values = [{}, *({"time_uncertainty_minutes": v} for v in (0, -1, True, None, "60", float("nan"), float("inf")))]
+        for value in values:
+            with self.subTest(value=value):
+                result = generate_report(request(time_precision="shichen", **value), as_of="2022-01-01")
+                self.assertEqual(result["status"], "needs_resolution")
+                self.assertNotIn("chart", result)
+        original = request(birth_datetime="2000-01-01T08:00", time_precision="shichen", time_uncertainty_minutes=60)
+        before = deepcopy(original)
+        result = generate_report(original, as_of="2022-01-01")
+        self.assertEqual(original, before)
+        precision = result["birth_time_precision"]
+        self.assertTrue(precision["is_representative"])
+        self.assertEqual(precision["interval"]["start"], "2000-01-01T07:00:00")
+        self.assertEqual(precision["interval"]["end"], "2000-01-01T09:00:00")
+        self.assertIn("conservative", precision["interval"]["boundary_policy"])
+        self.assertEqual(result["chart"]["input"]["time_uncertainty_minutes"], 60)
+        self.assertEqual(result["status"], "needs_verification")
+        self.assertEqual(result["annual_reports"], [])
+        self.assertIn("端点邻盘不等于真实候选", result["report_markdown"])
+        scenario = generate_report({**original, "strict_boundary": False}, as_of="2022-01-01")
+        self.assertEqual(scenario["status"], "needs_verification")
+        self.assertTrue(scenario["chart"]["nominal_pillars_only"])
+        self.assertTrue(scenario["annual_reports"])
+        self.assertTrue(scenario["dayun"])
+        self.assertEqual(scenario["chart"]["input"]["time_uncertainty_minutes"], 60)
+        self.assertGreater(scenario["chart"]["luck"]["age_margin_years_operational"], 0)
+        self.assertGreater(scenario["dayun"][0]["start_date_margin_days_operational"], 0)
+
     def test_date_alone_and_lunar_date_are_not_silently_accepted(self):
         for values in ({"birth_datetime":"2000-01-01"},{"calendar":"lunar"}):
             result = generate_report(request(**values),as_of="2022-01-01")
@@ -64,6 +114,83 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(result["annual_reports"][0]["solar_year"],2013)
         self.assertEqual(result["as_of"],"2013-05-06")
         self.assertEqual(result["conventions"]["time_basis"],"standard")
+        self.assertEqual(result["observation"]["precision"], "date")
+        self.assertTrue(result["observation"]["calculation_anchor"]["is_observation_date"])
+        self.assertFalse(result["birth_time_precision"]["is_representative"])
+        self.assertIn("资料观察截止：2013-05-06", result["report_markdown"])
+
+    def test_year_only_observation_retains_unknown_date_and_full_coverage(self):
+        original = request(observation_year=2013)
+        before = deepcopy(original)
+        result = generate_report(original)
+        self.assertEqual(original, before)
+        self.assertEqual(result["input"], before)
+        self.assertIsNone(result["as_of"])
+        observation = result["observation"]
+        self.assertEqual(observation["precision"], "year")
+        self.assertIsNone(observation["date"])
+        self.assertFalse(observation["calculation_anchor"]["is_observation_date"])
+        self.assertEqual(observation["calculation_anchor"]["date"], "2013-07-01")
+        self.assertEqual(observation["interval"]["start_inclusive"], "2013-01-01")
+        self.assertEqual(observation["interval"]["end_exclusive"], "2014-01-01")
+        self.assertEqual(observation["interval"]["start_utc"], "2012-12-31T16:00:00+00:00")
+        self.assertEqual([a["solar_year"] for a in result["annual_reports"]], [2012, 2013])
+        self.assertNotIn("资料观察截止", result["report_markdown"])
+        self.assertIn("非真实观察日期", result["report_markdown"])
+        with self.assertRaisesRegex(ValueError, "either as_of or observation_year"):
+            generate_report(original, as_of="2013-12-31")
+
+    def test_year_only_keeps_luck_transition_even_with_additional_report_years(self):
+        initial = generate_report(request(), as_of="2040-01-01")
+        switch = datetime.fromisoformat(initial["dayun"][2]["start_utc_approx"])
+        result = generate_report(request(observation_year=switch.year), years=[switch.year+1])
+        self.assertEqual([a["solar_year"] for a in result["annual_reports"]], [switch.year-1, switch.year, switch.year+1])
+        segments = result["observation"]["dayun_segments"]
+        self.assertEqual({s["sequence"] for s in segments}, {2, 3})
+        self.assertEqual(segments[0]["overlap_end_utc_approx"], switch.isoformat())
+        self.assertEqual(segments[1]["overlap_start_utc_approx"], switch.isoformat())
+
+    def test_year_only_birth_year_and_supported_range_are_explicit(self):
+        result = generate_report(request(birth_datetime="2000-08-01T12:30", observation_year=2000))
+        self.assertEqual(result["observation"]["coverage"], "partial_birth_year")
+        self.assertEqual(result["observation"]["pre_birth_solar_years"], [1999])
+        self.assertEqual([a["solar_year"] for a in result["annual_reports"]], [2000])
+        for value in (1900, 2101, True, "2013"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "observation_year must"):
+                generate_report(request(observation_year=value))
+        with self.assertRaisesRegex(ValueError, "after observation_year"):
+            generate_report(request(observation_year=1999))
+
+    def test_year_coverage_preserves_birth_window_crossing_new_year(self):
+        for strict in (True, False):
+            for birth, nominal in (("1999-12-31T23:30", "complete_year"),
+                                   ("2000-01-01T00:30", "partial_birth_year")):
+                with self.subTest(strict=strict, birth=birth):
+                    result = generate_report(request(birth_datetime=birth, observation_year=2000,
+                                                     time_uncertainty_minutes=60, strict_boundary=strict))
+                    observation = result["observation"]
+                    self.assertEqual(observation["coverage"], "uncertain_birth_year_boundary")
+                    self.assertEqual(observation["nominal_coverage"], nominal)
+                    self.assertEqual(observation["coverage_candidates"], ["complete_year", "partial_birth_year"])
+                    self.assertEqual(result["status"], "needs_verification")
+                    self.assertEqual(bool(result["annual_reports"]), not strict)
+            for birth, uncertainty, expected in (("1999-12-31T23:00", 60, "complete_year"),
+                                                 ("2000-01-01T01:00", 60, "uncertain_birth_year_boundary"),
+                                                 ("2000-01-01T00:00", 0, "complete_year")):
+                with self.subTest(strict=strict, endpoint_birth=birth):
+                    result = generate_report(request(birth_datetime=birth, observation_year=2000,
+                                                     time_uncertainty_minutes=uncertainty, strict_boundary=strict))
+                    self.assertEqual(result["observation"]["coverage"], expected)
+
+    def test_cli_accepts_year_only_observation(self):
+        root = Path(__file__).resolve().parent.parent
+        result = subprocess.run([sys.executable, str(root/"scripts/report_engine.py"),
+                                 "--input", str(root/"assets/birth-input.example.json"), "--as-of-year", "2013", "--year", "2013"],
+                                capture_output=True, text=True, check=True)
+        report = json.loads(result.stdout)
+        self.assertIsNone(report["as_of"])
+        self.assertEqual(report["input"]["observation_year"], 2013)
+        self.assertEqual([a["solar_year"] for a in report["annual_reports"]], [2012, 2013])
 
     def test_missing_as_of_rejected(self):
         with self.assertRaises(ValueError):
@@ -121,6 +248,13 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(result["annual_reports"],[])
         self.assertEqual(result["dayun"],[])
         self.assertTrue(result["chart"]["nominal_pillars_only"])
+        for time in ("17:45", "17:46"):
+            year_only = generate_report(request(birth_datetime=f"2016-02-04T{time}", observation_year=2026))
+            observation = year_only["observation"]
+            self.assertEqual(observation["dayun_segments_status"], "withheld_birth_boundary")
+            self.assertEqual(observation["dayun_segments"], [])
+            for key in ("contains_pre_dayun_time", "extends_beyond_generated_dayun", "pre_birth_solar_years"):
+                self.assertIsNone(observation[key])
 
     def test_dst_changes_are_visible_to_host_ai(self):
         result = generate_report(request(birth_datetime="1990-06-12T17:30",birthplace="北京"),as_of="2022-01-01")

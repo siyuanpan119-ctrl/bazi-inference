@@ -2,7 +2,7 @@
 
 **教 AI Agent 根据出生时间、性别和出生地算命。** 本技能提供从排盘到判断的完整传统方法：看月令和根气、辨旺衰、取格局用神与相神、分析成败救应，再推进到大运、流年、流月，回答用户实际关心的问题。
 
-当前版本 **0.4.1**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
+当前版本 **0.4.2**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
 
 ## 普通用户怎样用
 
@@ -35,7 +35,9 @@
 
 技能主入口：[SKILL.md](skills/bazi-inference/SKILL.md)。核心教学：[推演主流程](skills/bazi-inference/references/inference.md)、[格局条件树](skills/bazi-inference/references/patterns.md)、[具体问题判断](skills/bazi-inference/references/question-analysis.md)、[年度和大运报告](skills/bazi-inference/references/annual-report.md)。
 
-具体事件增加[条件与反证检查](skills/bazi-inference/references/event-discrimination.md)，区分事件对象、阶段和实际时间范围。v0.4.1将候选、未知前提、分支及合参依据保存为[可检查的判断记录](skills/bazi-inference/references/decision-record.md)，避免只有规则说明而没有实际比较。检查通过不证明预测有效。
+具体事件增加[条件与反证检查](skills/bazi-inference/references/event-discrimination.md)，区分事件对象、阶段和实际时间范围。v0.4.2要求首选、备选和保留的旧答案接受相同审查，并保存[可检查的判断记录](skills/bazi-inference/references/decision-record.md)：未知不是反证，保留原答案也不自动表示依据更强。检查通过不证明预测有效。
+
+输入只明确观察年份时使用 `--as-of-year YYYY`，不将计算锚点冒充观察日期；假设地点、代表时辰及其不确定范围须保留到解释中。普通精确日期接口保持兼容。
 
 紫微模块：[独立解盘与双系统比较](skills/bazi-inference/references/ziwei-inference.md)。一般咨询的交付仍是连贯的判断和依据，不要求用户参与开发评测。
 
@@ -75,6 +77,6 @@ python skills/bazi-inference/scripts/report_engine.py \
 
 我们使用命例题、答案与反例来发现推理问题，再将能复用的判断方法写回技能。开发者工具位于 [maintainer/](maintainer/README.md)：保留原预测、对答案、记录规则改动、比较旧新版结果。普通使用者无需读取或运行这些工具。
 
-每次发布更新教学方法、版本和验证记录。已知答案只能用于提出和修正规则；命中率是否提高，需要未见答案的新人物和事前固定的比较。修改技能不会训练底层AI模型权重。
+每次发布更新教学方法、版本和验证记录。已知答案只能用于提出和修正规则；命中率是否提高，需要未见答案的新人物和事前固定的比较。[下一轮旧新版协议](maintainer/references/next-trial.md)目前处于等待新题状态，没有生成成绩。修改技能不会训练底层AI模型权重。
 
 验证范围及未决问题见 [EVALUATION.md](EVALUATION.md)。公开仓库不包含私人原始题库或敏感生平资料；许可证见 [LICENSE](LICENSE)。

@@ -1,7 +1,8 @@
 """Offline birth-chart, Da-Yun and annual-report facts for a host AI.
 
 No network calls; never selects life events or treats traditional themes as facts.
-User supplies birth datetime, sex and city. The host supplies explicit as_of.
+User supplies birth datetime, sex and city. The host supplies an observation date
+or an explicitly year-only observation_year; no machine-clock fallback is used.
 """
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ import math
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from calendar_engine import (BRANCHES, STEMS, ELEMENTS, HIDDEN, UTC, chart,
                              branch_relations, month_pillar, solar_term,
@@ -50,6 +52,9 @@ def resolve_birthplace(value: str | dict, birth_year: int) -> dict:
     is an auditable assertion by the caller; this program does not verify URLs.
     """
     if isinstance(value, dict):
+        status = value.get("status", "resolved")
+        if status not in ("resolved", "scenario"):
+            return {"status": "needs_resolution", "missing": ["external birthplace status must be resolved or scenario"]}
         if not all(value.get(k) for k in ("city", "timezone", "timezone_source")):
             return {"status": "needs_resolution", "missing": ["city, timezone and timezone_source for external place resolution"]}
         if value.get("longitude_east") is not None:
@@ -58,7 +63,7 @@ def resolve_birthplace(value: str | dict, birth_year: int) -> dict:
                 raise ValueError("longitude_east must be finite and between -180 and 180")
             if not value.get("longitude_source"):
                 return {"status": "needs_resolution", "missing": ["longitude_source"]}
-        return {"status": "resolved", "city": value["city"], "timezone": value["timezone"],
+        return {"status": status, "city": value["city"], "timezone": value["timezone"],
                 "timezone_source": value["timezone_source"], "resolution": "caller_asserted_with_source",
                 "longitude_east": value.get("longitude_east"), "longitude_source": value.get("longitude_source"),
                 "longitude_precision": value.get("longitude_precision", "caller must state geographic precision")}
@@ -216,15 +221,30 @@ def annual_facts(calculation: dict, year: int, cycles: list[dict], *, verified_t
             ]}
 
 
-def generate_report(request: dict, *, as_of: str, years: list[int] | None = None) -> dict:
+def generate_report(request: dict, *, as_of: str | None = None, years: list[int] | None = None) -> dict:
     """Generate calculation facts and a usable report scaffold; do not mutate input."""
     req = deepcopy(request)
     if not isinstance(req, dict):
         raise ValueError("Birth request must be a JSON object")
-    if not as_of:
-        raise ValueError("as_of is required from host context; never freeze 'now' in code")
-    observation_date = date.fromisoformat(as_of)
-    output = {"schema_version": VERSION, "as_of": observation_date.isoformat(),
+    observation_year = req.get("observation_year")
+    if observation_year is not None:
+        if isinstance(observation_year, bool) or not isinstance(observation_year, int) or not 1901 <= observation_year <= 2100:
+            raise ValueError("observation_year must be an integer in 1901–2100 (coverage includes the preceding solar year)")
+        if as_of is not None:
+            raise ValueError("Use either as_of or observation_year; a calculation anchor is not an observation date")
+        observation_date = None
+        observation = {"precision": "year", "year": observation_year, "date": None,
+                       "source": "input.observation_year",
+                       "interval": {"start_inclusive": f"{observation_year}-01-01",
+                                    "end_exclusive": f"{observation_year+1}-01-01"},
+                       "calculation_anchor": {"date": f"{observation_year}-07-01", "is_observation_date": False}}
+    else:
+        if not as_of:
+            raise ValueError("as_of or observation_year is required from host context; never freeze 'now' in code")
+        observation_date = date.fromisoformat(as_of)
+        observation = {"precision": "date", "year": observation_date.year, "date": observation_date.isoformat(),
+                       "source": "as_of", "calculation_anchor": {"date": observation_date.isoformat(), "is_observation_date": True}}
+    output = {"schema_version": VERSION, "as_of": observation["date"], "observation": observation,
               "synthetic": req.get("synthetic", False), "input": req,
               "calculation_and_interpretation_are_separate": True}
     missing = [k for k in ("birth_datetime", "sex", "birthplace") if not req.get(k)]
@@ -240,8 +260,28 @@ def generate_report(request: dict, *, as_of: str, years: list[int] | None = None
     local = datetime.fromisoformat(req["birth_datetime"])
     if local.tzinfo is not None:
         raise ValueError("birth_datetime is local wall-clock time without offset; city resolves its historical offset")
-    if local.date() > observation_date:
+    if observation_date is not None and local.date() > observation_date:
         raise ValueError("Birth date is after as_of")
+    if observation_year is not None and local.year > observation_year:
+        raise ValueError("Birth date is after observation_year")
+    precision = req.get("time_precision", "clock")
+    uncertainty = req.get("time_uncertainty_minutes", 0)
+    if (precision not in ("clock", "minute", "second", "shichen")
+            or isinstance(uncertainty, bool) or not isinstance(uncertainty, (int, float))
+            or not math.isfinite(uncertainty) or not 0 <= uncertainty <= 1440):
+        return {**output, "status": "needs_resolution", "missing": ["supported time_precision and finite time_uncertainty_minutes within 0–1440"]}
+    if precision == "shichen" and uncertainty <= 0:
+        return {**output, "status": "needs_resolution",
+                "missing": ["shichen representative clock requires explicit positive time_uncertainty_minutes; it is not an exact birth time"]}
+    output["birth_time_precision"] = {"precision": precision, "is_representative": precision == "shichen" or uncertainty > 0,
+                                      "time_uncertainty_minutes": uncertainty}
+    if uncertainty:
+        output["birth_time_precision"]["interval"] = {
+            "start": (local-timedelta(minutes=uncertainty)).isoformat(),
+            "end": (local+timedelta(minutes=uncertainty)).isoformat(),
+            "input_basis": req.get("input_basis", "civil"),
+            "boundary_policy": "conservative_inclusive_probes; adjacent pillars at endpoints are not confirmed birth candidates",
+            "convention": "caller-supplied symmetric conservative boundary-check window; not a confirmed branch interval"}
     place_value = req["birthplace"]
     if isinstance(place_value, str) and req.get("timezone"):
         place_value = {"city": req.get("city", place_value), "timezone": req["timezone"],
@@ -249,13 +289,14 @@ def generate_report(request: dict, *, as_of: str, years: list[int] | None = None
                        "longitude_source": req.get("longitude_source")}
     place = resolve_birthplace(place_value, local.year)
     output["birthplace_resolution"] = place
-    if place["status"] != "resolved":
+    if place["status"] not in ("resolved", "scenario"):
         return {**output, "status": "needs_resolution", "missing": place["missing"]}
+    output["interpretation_must_be_conditional_on_birthplace"] = place["status"] == "scenario"
     basis = req.get("time_basis", "standard")
     day_boundary = req.get("day_boundary", "midnight")
     common = {"city": place["city"], "input_basis": req.get("input_basis", "civil"),
               "day_boundary": day_boundary, "longitude": place.get("longitude_east"),
-              "fold": req.get("fold"), "time_uncertainty_minutes": req.get("time_uncertainty_minutes", 0),
+              "fold": req.get("fold"), "time_uncertainty_minutes": uncertainty,
               "verified_terms": req.get("verified_terms")}
     try:
         calculation = chart(local, place["timezone"], sex, time_basis=basis, **common)
@@ -289,20 +330,53 @@ def generate_report(request: dict, *, as_of: str, years: list[int] | None = None
     output["interpretation_must_be_conditional_on_time_convention"] = bool(
         any(a.get("changes_pillars") for a in alternatives) or output["day_boundary_alternative"])
     unresolved = not calculation["usable_for_single_chart_interpretation"]
+    if unresolved:
+        output["chart"]["nominal_pillars_only"] = True
     output["status"] = "needs_verification" if unresolved else "ready_with_limitations"
     output["dayun"] = luck_intervals(calculation)
-    requested_years = years if years is not None else req.get("years", [observation_date.year])
+    requested_years = years if years is not None else req.get("years", [observation["year"]])
     if not isinstance(requested_years, list) or not requested_years:
         raise ValueError("years must be a nonempty list")
     if len(requested_years) > 100:
         raise ValueError("At most 100 requested annual intervals per report")
+    if any(isinstance(y, bool) or not isinstance(y, int) or not 1900 <= y <= 2100 for y in requested_years):
+        raise ValueError("Annual solar year must be an integer in 1900–2100")
+    if observation_year is not None:
+        zone = ZoneInfo(place["timezone"])
+        start = datetime(observation_year, 1, 1, tzinfo=zone).astimezone(UTC)
+        end = datetime(observation_year+1, 1, 1, tzinfo=zone).astimezone(UTC)
+        birth = datetime.fromisoformat(calculation["time"]["utc"])
+        observation["interval"].update({"timezone": place["timezone"], "timezone_basis": "birthplace clock zone",
+                                        "start_utc": start.isoformat(), "end_utc": end.isoformat()})
+        observation["nominal_coverage"] = "partial_birth_year" if birth > start else "complete_year"
+        observation["coverage"] = observation["nominal_coverage"]
+        observation["coverage_basis"] = "input birth-time window; nominal_* fields use the representative birth instant"
+        birth_margin = timedelta(minutes=uncertainty)
+        if birth-birth_margin <= start < birth+birth_margin:
+            observation["coverage"] = "uncertain_birth_year_boundary"
+            observation["coverage_candidates"] = ["complete_year", "partial_birth_year"]
+        observation["nominal_effective_start_utc"] = max(start, birth).isoformat()
+        observation["required_solar_years"] = [observation_year-1, observation_year]
+        observation["pre_birth_solar_years"] = [y for y in observation["required_solar_years"]
+                                               if solar_term(y+1, 2, req.get("verified_terms")).utc <= birth]
+        requested_years = sorted(set(requested_years) | (set(observation["required_solar_years"])-set(observation["pre_birth_solar_years"])))
+        observation["dayun_segments"] = _overlapping_luck_segments(
+            output["dayun"], start, end, birth, list(calculation["pillars"].values()),
+            ["年柱", "月柱", "日柱", "时柱"], [], [])
+        observation["contains_pre_dayun_time"] = max(start, birth) < datetime.fromisoformat(output["dayun"][0]["start_utc_approx"])
+        observation["extends_beyond_generated_dayun"] = end > datetime.fromisoformat(output["dayun"][-1]["end_utc_approx"])
     # Strict mode permits an auditable candidate chart but withholds interpretation
     # material that could quietly turn a nominal boundary choice into an answer.
     if unresolved and req.get("strict_boundary", True):
-        output["chart"]["nominal_pillars_only"] = True
         output["annual_reports"] = []
         output["withheld_reason"] = "Resolve birth solar-term/hour/day candidates before a single-chart annual reading; nominal Da-Yun must also be recomputed."
         output["dayun"] = []
+        if observation_year is not None:
+            observation["dayun_segments"] = []
+            observation["dayun_segments_status"] = "withheld_birth_boundary"
+            observation["contains_pre_dayun_time"] = None
+            observation["extends_beyond_generated_dayun"] = None
+            observation["pre_birth_solar_years"] = None
     else:
         output["annual_reports"] = [annual_facts(calculation, y, output["dayun"], verified_terms=req.get("verified_terms"))
                                     for y in sorted(set(requested_years))]
@@ -326,13 +400,27 @@ def generate_report(request: dict, *, as_of: str, years: list[int] | None = None
 
 
 def render_markdown(report: dict) -> str:
-    lines = ["# 八字与流年分析工作底稿", "", f"资料观察截止：{report['as_of']}。计算状态：{report['status']}。", ""]
+    observation = report["observation"]
+    if observation["precision"] == "year":
+        interval = observation["interval"]
+        observation_text = (f"观察年份：{observation['year']}，月日未知；观察区间：[{interval['start_inclusive']}, {interval['end_exclusive']})，"
+                            f"时区：{interval['timezone']}。计算锚点：{observation['calculation_anchor']['date']}（非真实观察日期，不代表‘目前’）。")
+    else:
+        observation_text = f"资料观察截止：{report['as_of']}。"
+    lines = ["# 八字与流年分析工作底稿", "", f"{observation_text}计算状态：{report['status']}。", ""]
     if report.get("synthetic"):
         lines += ["这是明确标记的合成输入，用于演示接口，不对应真实命主。", ""]
     calculation = report["chart"]
     p = calculation["pillars"]
     lines += [f"四柱计算：{p['year']}　{p['month']}　{p['day']}　{p['hour']}。",
               f"口径：{report['conventions']['time_basis']}，换日：{report['conventions']['day_boundary']}。", ""]
+    if report.get("interpretation_must_be_conditional_on_birthplace"):
+        lines += [f"出生地采用情景地点：{report['birthplace_resolution']['city']}，非已确认出生城市；以下计算与解读以此情景为条件。", ""]
+    if report["birth_time_precision"]["is_representative"]:
+        interval = report["birth_time_precision"]["interval"]
+        lines += [f"出生钟点仅为代表值；输入不确定窗口：{interval['start']}—{interval['end']}。这是保守边界检查范围，不是精确出生分钟或已确认时辰。", ""]
+        if report["birth_time_precision"]["precision"] == "shichen":
+            lines += ["引擎保守检查窗口端点；若原资料为已确定地支时辰，端点邻盘不等于真实候选，仍须按原始半开时辰范围核验。", ""]
     if report["status"] == "needs_verification":
         lines += ["出生靠近计算边界，以上只是名义候选；核实时刻与候选盘后才能开展唯一命盘分析。", ""]
     if report.get("interpretation_must_be_conditional_on_time_convention"):
@@ -354,13 +442,22 @@ def render_markdown(report: dict) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, type=Path)
-    parser.add_argument("--as-of", required=True, help="Explicit YYYY-MM-DD from the user's observation date or host context")
+    observation_args = parser.add_mutually_exclusive_group()
+    observation_args.add_argument("--as-of", help="Explicit YYYY-MM-DD from the user's observation date or host context")
+    observation_args.add_argument("--as-of-year", type=int, help="Year-only observation; month/day remain unknown")
     parser.add_argument("--year", action="append", type=int, dest="years")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--markdown", type=Path)
     args = parser.parse_args()
     try:
-        result = generate_report(json.loads(args.input.read_text(encoding="utf-8")), as_of=args.as_of, years=args.years)
+        request = json.loads(args.input.read_text(encoding="utf-8"))
+        if args.as_of_year is not None:
+            if not isinstance(request, dict):
+                raise ValueError("Birth request must be a JSON object")
+            if request.get("observation_year", args.as_of_year) != args.as_of_year:
+                raise ValueError("--as-of-year conflicts with input.observation_year")
+            request["observation_year"] = args.as_of_year
+        result = generate_report(request, as_of=args.as_of, years=args.years)
     except (ValueError, TypeError, KeyError) as exc:
         parser.exit(2, f"Invalid input: {exc}\n")
     content = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
