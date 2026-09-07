@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
@@ -14,12 +14,14 @@
     "independent BaZi / Ziwei interpretation and fixed fusion protocol",
     "candidate discrimination and branch-complete inference",
     "complete scoped Ziwei evidence context and Gregorian-year segmentation",
-    "condition-based event discrimination and symmetric conflict handling"
+    "condition-based event discrimination and symmetric conflict handling",
+    "candidate-level decision records with explicit unresolved states and branch coverage checks"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",
     "Specific medical, legal and biographical events remain unvalidated",
-    "Skill changes alter instructions and programs, not underlying model weights"
+    "Skill changes alter instructions and programs, not underlying model weights",
+    "Decision record validation checks declared structure, not truth of reasoning or calibrated accuracy"
   ],
   "maintainer_tools_bundled": false,
   "optional_ziwei_engine": {

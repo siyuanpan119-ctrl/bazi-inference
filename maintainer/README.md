@@ -12,6 +12,8 @@ v0.4.0增加[四方法与扰动对照](references/controlled-trial.md)：无盘�
 
 候选卡版本与完整技能版本分别记录。比较技能效果时，还须保存实际使用的技能文件版本或内容摘要、宿主AI模型与推理设置；仅冻结候选卡不能证明当时使用的全部教学指令没有改变。
 
+v0.4.1的[最后一轮开发复盘](references/review-v041.md)保留18/40、18/40、17/40的三列实际结果。对这种已有简式冻结记录，可用 `scripts/score_frozen_dual.py --root /private/frozen-round --key /private/key.json --output /private/score.json` 只读核验并评分。它不会把分栏补成独立执行，也不会用备选覆盖替代首选成绩。完整实验仍用上述受控工具。安装包的 `decision_record.py` 供普通具体推演查遗漏，和维护者评分器的职责分开。
+
 在仓库根目录运行全部软件检查：
 
 ```bash

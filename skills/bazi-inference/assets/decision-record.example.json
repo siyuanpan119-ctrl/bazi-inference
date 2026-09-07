@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "target": {
+    "subject": "合成练习人物甲（无真实命例）",
+    "event_stage": "课程结业窗口的条件比较",
+    "time_scope": "合成时段 T1"
+  },
+  "candidates": [
+    {
+      "id": "A",
+      "claims": [
+        {"text": "T1 出现课程结业支持", "state": "supported", "evidence_ids": ["D1"]},
+        {"text": "此前已入学且持续修读", "state": "unknown", "evidence_ids": []}
+      ]
+    },
+    {
+      "id": "B",
+      "claims": [
+        {"text": "T1 仅出现短期学习接触", "state": "supported", "evidence_ids": ["BG1"]}
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "BG1",
+      "kind": "traditional_interpretation",
+      "scope": "background",
+      "source_ref": "合成底稿/共有学习主题",
+      "statement": "假设两候选都能解释一般学习主题；不对应真实排盘。"
+    },
+    {
+      "id": "D1",
+      "kind": "traditional_interpretation",
+      "scope": "discriminator",
+      "source_ref": "references/event-discrimination.md#E-EDU（操作假设，非预测验证）",
+      "statement": "合成假设：产出与考核完成的承接在 T1 较突出；这里只演示条件声明。"
+    }
+  ],
+  "primary": "A",
+  "strongest_alternative": "B",
+  "comparison": {
+    "against": ["B"],
+    "discriminator_ids": ["D1"],
+    "why_distinguishes": "D1 声明了完成环节，BG1 只涉及接触；这仍不能确认已结业。",
+    "counterevidence": "完成主题也可能对应工作考核；若没有持续修读过程，应撤回课程结业解释。",
+    "required_unknowns": ["此前是否入学并持续修读"]
+  },
+  "decision_mode": "conditional"
+}
