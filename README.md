@@ -2,7 +2,7 @@
 
 **教 AI Agent 根据出生时间、性别和出生地算命。** 本技能提供从排盘到判断的完整传统方法：看月令和根气、辨旺衰、取格局用神与相神、分析成败救应，再推进到大运、流年、流月，回答用户实际关心的问题。
 
-当前版本 **0.4.2**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
+当前版本 **0.4.5**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
 
 ## 普通用户怎样用
 
@@ -35,7 +35,7 @@
 
 技能主入口：[SKILL.md](skills/bazi-inference/SKILL.md)。核心教学：[推演主流程](skills/bazi-inference/references/inference.md)、[格局条件树](skills/bazi-inference/references/patterns.md)、[具体问题判断](skills/bazi-inference/references/question-analysis.md)、[年度和大运报告](skills/bazi-inference/references/annual-report.md)。
 
-具体事件增加[条件与反证检查](skills/bazi-inference/references/event-discrimination.md)，区分事件对象、阶段和实际时间范围。v0.4.2要求首选、备选和保留的旧答案接受相同审查，并保存[可检查的判断记录](skills/bazi-inference/references/decision-record.md)：未知不是反证，保留原答案也不自动表示依据更强。检查通过不证明预测有效。
+具体事件增加[条件与反证检查](skills/bazi-inference/references/event-discrimination.md)，区分事件对象、阶段和实际时间范围。v0.4.5按用户要求完整作答并给出首选；依据不足时明确标注猜测，不用未决状态代替最终答案。[v3判断记录](skills/bazi-inference/references/decision-record.md)统一候选比较维度、首选与备选排序及时间分支，要求记录与最终答卷一致；未知不能当反证。检查通过不证明预测有效。
 
 输入只明确观察年份时使用 `--as-of-year YYYY`，不将计算锚点冒充观察日期；假设地点、代表时辰及其不确定范围须保留到解释中。普通精确日期接口保持兼容。
 
@@ -50,7 +50,7 @@
 ## 安装给其他 AI Agent
 
 ```bash
-git clone https://github.com/siyuanpan119-ctrl/-.git bazi-inference-project
+git clone https://github.com/siyuanpan119-ctrl/bazi-inference.git bazi-inference-project
 ```
 
 将 `skills/bazi-inference/` 完整导入支持 Agent Skills 的客户端。支持 `.agents/skills/` 惯例的客户端可放在该目录，具体以客户端说明为准。没有技能加载器的 AI 也可阅读 `SKILL.md` 及其引用，但要复算排盘，需要宿主提供 Python 执行能力。[Agent Skills 规范](https://agentskills.io/specification)
@@ -77,6 +77,6 @@ python skills/bazi-inference/scripts/report_engine.py \
 
 我们使用命例题、答案与反例来发现推理问题，再将能复用的判断方法写回技能。开发者工具位于 [maintainer/](maintainer/README.md)：保留原预测、对答案、记录规则改动、比较旧新版结果。普通使用者无需读取或运行这些工具。
 
-每次发布更新教学方法、版本和验证记录。已知答案只能用于提出和修正规则；命中率是否提高，需要未见答案的新人物和事前固定的比较。[下一轮旧新版协议](maintainer/references/next-trial.md)目前处于等待新题状态，没有生成成绩。修改技能不会训练底层AI模型权重。
+每次发布更新教学方法、版本和验证记录。已知答案只能用于提出和修正规则；命中率是否提高，需要未见答案的新人物和事前固定的比较。新版[复盘与准确率验证流程](skills/bazi-inference/references/review-and-evaluation.md)规定冻结原答卷、定位错误和用新命例比较版本。[原0.4.1与0.4.2比较协议](maintainer/references/next-trial.md)保留为历史待题计划，未生成成绩，也不代表0.4.5已完成对照验证。修改技能不会训练底层AI模型权重。
 
 验证范围及未决问题见 [EVALUATION.md](EVALUATION.md)。公开仓库不包含私人原始题库或敏感生平资料；许可证见 [LICENSE](LICENSE)。

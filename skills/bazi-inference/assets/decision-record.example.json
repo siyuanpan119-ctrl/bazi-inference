@@ -1,23 +1,51 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "target": {
     "subject": "合成练习人物甲（无真实命例）",
     "event_stage": "课程结业窗口的条件比较",
-    "time_scope": "合成时段 T1"
+    "time_scope": "合成时段 T1",
+    "facets": [
+      "完成环节",
+      "修读事实"
+    ]
   },
   "candidates": [
     {
       "id": "A",
       "claims": [
-        {"text": "T1 出现课程结业支持", "state": "supported", "evidence_ids": ["D1"]},
-        {"text": "此前已入学且持续修读", "state": "unknown", "evidence_ids": ["U1"]}
+        {
+          "text": "T1 出现课程结业支持",
+          "state": "supported",
+          "evidence_ids": [
+            "D1"
+          ]
+        },
+        {
+          "text": "此前已入学且持续修读",
+          "state": "unknown",
+          "evidence_ids": [
+            "U1"
+          ]
+        }
       ]
     },
     {
       "id": "B",
       "claims": [
-        {"text": "T1 出现一般学习主题", "state": "supported", "evidence_ids": ["BG1"]},
-        {"text": "T1 尚未完成课程", "state": "unknown", "evidence_ids": ["U1"]}
+        {
+          "text": "T1 出现一般学习主题",
+          "state": "supported",
+          "evidence_ids": [
+            "BG1"
+          ]
+        },
+        {
+          "text": "T1 尚未完成课程",
+          "state": "unknown",
+          "evidence_ids": [
+            "U1"
+          ]
+        }
       ]
     }
   ],
@@ -48,31 +76,91 @@
   "primary": "A",
   "strongest_alternative": "B",
   "comparison": {
-    "against": ["B"],
-    "discriminator_ids": ["D1"],
+    "against": [
+      "B"
+    ],
+    "discriminator_ids": [
+      "D1"
+    ],
     "why_distinguishes": "D1 声明了完成环节，BG1 只涉及一般学习；这仍不能确认已结业，也不能确认尚未结业。",
     "counterevidence": "完成主题也可能对应工作考核；若没有持续修读过程，应撤回课程结业解释。",
-    "required_unknowns": ["此前是否入学并持续修读"]
+    "required_unknowns": [
+      "此前是否入学并持续修读"
+    ]
   },
   "candidate_reviews": [
     {
       "id": "A",
-      "support_ids": ["D1"],
+      "support_ids": [
+        "D1"
+      ],
       "counterevidence_ids": [],
-      "required_unknowns": ["此前已入学且持续修读"],
+      "required_unknowns": [
+        "此前已入学且持续修读"
+      ],
       "strongest_alternative": "B",
-      "discriminator_ids": ["D1"],
-      "comparison": "A声明有完成环节的支持，B只有一般学习主题；但工作考核也可能解释D1，修读事实未知，保留A不等于证明结业。"
+      "discriminator_ids": [
+        "D1"
+      ],
+      "comparison": "A声明有完成环节的支持，B只有一般学习主题；但工作考核也可能解释D1，修读事实未知，保留A不等于证明结业。",
+      "facet_reviews": [
+        {
+          "facet": "完成环节",
+          "state": "relative_support",
+          "evidence_ids": [
+            "D1"
+          ]
+        },
+        {
+          "facet": "修读事实",
+          "state": "unknown",
+          "evidence_ids": [
+            "U1"
+          ]
+        }
+      ]
     },
     {
       "id": "B",
-      "support_ids": ["BG1"],
+      "support_ids": [
+        "BG1"
+      ],
       "counterevidence_ids": [],
-      "required_unknowns": ["T1 尚未完成课程"],
+      "required_unknowns": [
+        "T1 尚未完成课程"
+      ],
       "strongest_alternative": "A",
-      "discriminator_ids": ["D1"],
-      "comparison": "B的一般学习主题与A相容，却没有证明未结业的依据；D1使A的完成解释可讨论，但U1不是反证，现实状态仍无法区分。"
+      "discriminator_ids": [
+        "D1"
+      ],
+      "comparison": "B的一般学习主题与A相容，却没有证明未结业的依据；D1使A的完成解释可讨论，但U1不是反证，现实状态仍无法区分。",
+      "facet_reviews": [
+        {
+          "facet": "完成环节",
+          "state": "shared_background",
+          "evidence_ids": [
+            "BG1"
+          ]
+        },
+        {
+          "facet": "修读事实",
+          "state": "unknown",
+          "evidence_ids": [
+            "U1"
+          ]
+        }
+      ]
     }
   ],
-  "decision_mode": "conditional"
+  "decision_mode": "conditional",
+  "ranking": [
+    [
+      "A"
+    ],
+    [
+      "B"
+    ]
+  ],
+  "ranking_reason": "合成声明D1较贴完成环节，因此将A列前；工作考核仍是竞争解释，修读事实未知，排序不确认实际结业。",
+  "selection_basis": "relative_support"
 }

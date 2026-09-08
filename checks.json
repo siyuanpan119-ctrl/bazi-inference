@@ -1,1 +1,1 @@
-{"skill": "bazi-inference", "version": "0.4.2", "core_tests": 94, "maintainer_tests": 92, "tests": 186, "failures": 0, "errors": 0, "skipped": 0, "software_checks_pass": true, "prediction_accuracy_validated": false}
+{"skill": "bazi-inference", "version": "0.4.5", "core_tests": 115, "maintainer_tests": 92, "tests": 207, "failures": 0, "errors": 0, "skipped": 0, "software_checks_pass": true, "prediction_accuracy_validated": false}

@@ -1,13 +1,13 @@
 {
   "name": "bazi-inference",
-  "version": "0.4.2",
+  "version": "0.4.5",
   "description": "可复用的八字推演与可选紫微合参，回答具体命理问题和年度大运报告。",
   "author": {
     "name": "siyuanpan119-ctrl",
     "url": "https://github.com/siyuanpan119-ctrl"
   },
-  "homepage": "https://github.com/siyuanpan119-ctrl/-",
-  "repository": "https://github.com/siyuanpan119-ctrl/-",
+  "homepage": "https://github.com/siyuanpan119-ctrl/bazi-inference",
+  "repository": "https://github.com/siyuanpan119-ctrl/bazi-inference",
   "license": "MIT",
   "keywords": [
     "bazi",
@@ -26,7 +26,7 @@
     "developerName": "siyuanpan119-ctrl",
     "category": "Productivity",
     "capabilities": [],
-    "websiteURL": "https://github.com/siyuanpan119-ctrl/-",
+    "websiteURL": "https://github.com/siyuanpan119-ctrl/bazi-inference",
     "defaultPrompt": [
       "根据我的出生时间、性别和出生城市，核验四柱并完整分析命局。",
       "分析我的事业财运、婚恋家庭，以及当前大运和未来几年流年。",

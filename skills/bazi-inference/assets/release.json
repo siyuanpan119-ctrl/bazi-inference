@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.4.2",
+  "version": "0.4.5",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
@@ -17,7 +17,12 @@
     "condition-based event discrimination and symmetric conflict handling",
     "candidate-level decision records with explicit unresolved states and branch coverage checks",
     "symmetric review of every candidate including retained baseline choices",
-    "year-only observation scope and explicit time and place scenarios"
+    "year-only observation scope and explicit time and place scenarios",
+    "answer-first final choices with evidence uncertainty recorded separately",
+    "context-based historical-exercise answering and explicit submission status without keyword abstention",
+    "v3 target-facet reviews, authoritative tied rankings and explicit branch comparisons",
+    "review quality warnings and consistent summaries without automatic answer selection",
+    "frozen-answer review and case-grouped unseen-example evaluation protocol"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",

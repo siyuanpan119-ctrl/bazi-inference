@@ -10,7 +10,7 @@ from copy import deepcopy
 from itertools import permutations
 from pathlib import Path
 
-from decision_record import check_record
+from decision_record import check_record, render_summary
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +64,31 @@ def symmetric_record(version=2):
          "strongest_alternative": "A", "discriminator_ids": [],
          "comparison": "丙与甲的现实事件仍待查；无已知反证，不声明丙胜出。"},
     ]
+    return data
+
+
+def ranked_record():
+    data = symmetric_record(3)
+    data["target"]["facets"] = ["合成事件取得"]
+    data.update(ranking=[["A"], ["B"], ["C"]], ranking_reason="按合成条件 D 的声明排序。",
+                selection_basis="relative_support")
+    for review in data["candidate_reviews"]:
+        review["facet_reviews"] = [{"facet": "合成事件取得", "state": "unknown", "evidence_ids": []}]
+    data["candidate_reviews"][0]["facet_reviews"][0].update(state="relative_support", evidence_ids=["D"])
+    return data
+
+
+def tied_record():
+    data = ranked_record()
+    data.update(ranking=[["A", "B", "C"]], ranking_reason="全部候选均缺少区分条件，实际比较后并列。",
+                selection_basis="guess", decision_mode="forced_choice")
+    data["comparison"].update(discriminator_ids=[], required_unknowns=["合成条件甲"],
+                              why_distinguishes="无法区分，保留 A 作为本轮猜测。")
+    data["candidates"][0]["claims"][0].update(state="unknown", evidence_ids=[])
+    for review in data["candidate_reviews"]:
+        review["discriminator_ids"] = []
+        review["facet_reviews"][0].update(state="unknown", evidence_ids=[])
+    data["candidate_reviews"][0].update(support_ids=[], required_unknowns=["合成条件甲"])
     return data
 
 
@@ -167,6 +192,36 @@ class DecisionRecordTests(unittest.TestCase):
         self.assertTrue(result["forced"])
         self.assertEqual(result["primary"], "A")
         self.assertTrue(result["record_valid"])
+
+    def test_unknown_choice_is_submitted_without_becoming_supported(self):
+        data = symmetric_record()
+        data['decision_mode'] = 'forced_choice'
+        data['candidates'][0]['claims'][0].update(state='unknown', evidence_ids=[])
+        data['comparison'].update(discriminator_ids=[], required_unknowns=['合成条件甲'])
+        for review in data['candidate_reviews']:
+            review['discriminator_ids'] = []
+        data['candidate_reviews'][0].update(support_ids=[], required_unknowns=['合成条件甲'])
+        before = deepcopy(data)
+        result = check_record(data)
+        self.assertTrue(result['record_valid'])
+        self.assertEqual(result['submission_status'], 'submitted')
+        self.assertEqual(result['effective_status'], 'unresolved')
+        self.assertEqual(result['primary'], 'A')
+        self.assertIn('primary_unknown_claim', codes(result))
+        self.assertEqual(data, before)
+
+    def test_missing_choice_and_invalid_record_have_distinct_submission_states(self):
+        data = record()
+        data['primary'] = None
+        data['comparison']['against'] = ['A', 'B', 'C']
+        result = check_record(data)
+        self.assertTrue(result['record_valid'])
+        self.assertEqual(result['submission_status'], 'missing_choice')
+        self.assertEqual(result['effective_status'], 'unresolved')
+        data['primary'] = 'nonexistent'
+        result = check_record(data)
+        self.assertFalse(result['record_valid'])
+        self.assertEqual(result['submission_status'], 'invalid_record')
 
     def test_bad_internal_references_are_schema_errors(self):
         for location in ("primary", "claim", "comparison", "branch", "fusion"):
@@ -371,7 +426,10 @@ class DecisionRecordTests(unittest.TestCase):
                 proc = subprocess.run([sys.executable, str(ROOT / "scripts/decision_record.py"),
                                        "--input", str(source), "--output", str(output)], capture_output=True, text=True)
                 self.assertEqual(proc.returncode, expected_code, proc.stderr)
-                self.assertEqual(json.loads(output.read_text(encoding="utf-8"))["effective_status"], expected_status)
+                checked = json.loads(output.read_text(encoding="utf-8"))
+                self.assertEqual(checked["effective_status"], expected_status)
+                if expected_status == "invalid":
+                    self.assertEqual(checked["submission_status"], "invalid_record")
 
     def test_cli_refuses_same_file_including_resolved_paths_and_links(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -390,6 +448,278 @@ class DecisionRecordTests(unittest.TestCase):
                     self.assertEqual(proc.returncode, 2)
                     self.assertIn("拒绝覆盖", proc.stderr)
                     self.assertEqual(source.read_text(encoding="utf-8"), original)
+
+
+class RankedDecisionRecordTests(unittest.TestCase):
+    def test_v3_adds_explicit_standard_and_does_not_mutate_or_score(self):
+        data = ranked_record()
+        before = deepcopy(data)
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertEqual(result["review_standard"], "target_facets_v3")
+        self.assertEqual(result["effective_status"], "relative_basis_declared")
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertNotIn("probability", result)
+        self.assertEqual(data, before)
+
+    def test_ranking_misalignment_retains_submitted_primary(self):
+        data = ranked_record()
+        data["ranking"] = [["B"], ["C"], ["A"]]
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertIn("primary_outside_top_rank", codes(result))
+        self.assertIn("review_alternative_rank_mismatch", codes(result))
+        self.assertEqual(result["primary"], "A")
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["effective_status"], "unresolved")
+
+    def test_alternatives_use_highest_remaining_tier_and_primary_fields_stay_consistent(self):
+        data = ranked_record()
+        data["strongest_alternative"] = "C"
+        self.assertIn("alternative_rank_mismatch", codes(check_record(data)))
+        data["ranking"] = [["A"], ["B", "C"]]
+        result = check_record(data)
+        self.assertNotIn("alternative_rank_mismatch", codes(result))
+        self.assertIn("inconsistent_primary_alternative", codes(result))
+        data["candidate_reviews"][0]["strongest_alternative"] = "C"
+        self.assertEqual(check_record(data)["effective_status"], "relative_basis_declared")
+
+    def test_missing_empty_and_duplicate_ranks_are_issues_not_invalid_records(self):
+        for ranking, expected in (([["A"], ["B"]], "incomplete_ranking"),
+                                  ([["A"], ["B", "C", "A"]], "duplicate_ranked_candidate"),
+                                  ([["A"], [], ["B", "C"]], "empty_ranking"),
+                                  ([], "empty_ranking")):
+            with self.subTest(ranking=ranking):
+                data = ranked_record()
+                data["ranking"] = ranking
+                result = check_record(data)
+                self.assertTrue(result["record_valid"])
+                self.assertIn(expected, codes(result))
+                self.assertEqual(result["submission_status"], "submitted")
+        data = ranked_record()
+        del data["ranking"]
+        self.assertIn("empty_ranking", codes(check_record(data)))
+
+    def test_bad_ranking_types_and_references_are_errors(self):
+        for ranking in (None, "A > B", ["A", "B"], [["A"], [2]], [["A", "B", "absent"]]):
+            with self.subTest(ranking=ranking):
+                data = ranked_record()
+                data["ranking"] = ranking
+                self.assertFalse(check_record(data)["record_valid"])
+
+    def test_missing_v3_declarations_are_issues_while_v2_remains_compatible(self):
+        for key, expected in (("ranking_reason", "missing_ranking_reason"),
+                              ("selection_basis", "missing_selection_basis"),
+                              ("candidate_reviews", "incomplete_candidate_reviews")):
+            data = ranked_record()
+            del data[key]
+            result = check_record(data)
+            self.assertTrue(result["record_valid"])
+            self.assertIn(expected, codes(result))
+        data = ranked_record()
+        del data["target"]["facets"]
+        self.assertIn("missing_target_facets", codes(check_record(data)))
+        for version in (1, 2):
+            data = symmetric_record(version)
+            result = check_record(data)
+            self.assertTrue(result["record_valid"])
+            self.assertEqual(result["review_standard"], "symmetric")
+            self.assertNotIn("temporal_review_statuses", result)
+            self.assertIn("未执行 v3", render_summary(data))
+
+    def test_facets_must_be_unique_and_all_candidates_cover_each(self):
+        data = ranked_record()
+        data["target"]["facets"].append("合成量级")
+        self.assertIn("incomplete_facet_reviews", codes(check_record(data)))
+        data = ranked_record()
+        data["target"]["facets"].append("合成事件取得")
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertIn("duplicate_target_facet", codes(result))
+        data = ranked_record()
+        data["candidate_reviews"][0]["facet_reviews"] *= 2
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertIn("duplicate_facet_review", codes(result))
+        data = ranked_record()
+        del data["candidate_reviews"][1]["facet_reviews"]
+        self.assertIn("incomplete_facet_reviews", codes(check_record(data)))
+
+    def test_unknown_or_background_facet_does_not_establish_target_discriminator(self):
+        for state, ids in (("unknown", []), ("shared_background", ["BG"]),
+                           ("relative_support", ["BG"])):
+            with self.subTest(state=state):
+                data = ranked_record()
+                data["candidate_reviews"][0]["facet_reviews"][0].update(state=state, evidence_ids=ids)
+                result = check_record(data)
+                self.assertTrue(result["record_valid"])
+                self.assertIn("guess_required", codes(result))
+                if state == "relative_support":
+                    self.assertIn("background_as_discriminator", codes(result))
+                    self.assertIn("unlinked_facet_discriminator", codes(result))
+
+    def test_facet_discriminator_must_be_available_declared_and_linked_to_own_review(self):
+        for change in ("unavailable", "unlinked", "undeclared"):
+            with self.subTest(change=change):
+                data = ranked_record()
+                if change == "unavailable":
+                    data["evidence"][0]["status"] = "unknown"
+                elif change == "unlinked":
+                    data["candidate_reviews"][0]["support_ids"] = []
+                else:
+                    data["candidate_reviews"][0]["discriminator_ids"] = []
+                result = check_record(data)
+                self.assertIn("unlinked_facet_discriminator", codes(result))
+                self.assertIn("guess_required", codes(result))
+        data = ranked_record()
+        data["candidate_reviews"][1]["facet_reviews"][0].update(state="relative_support", evidence_ids=["D"])
+        self.assertIn("unlinked_facet_discriminator", codes(check_record(data)))
+
+    def test_facet_evidence_and_names_have_validated_references(self):
+        for key, value in (("facet", "absent"), ("evidence_ids", ["absent"]), ("state", "certain")):
+            data = ranked_record()
+            data["candidate_reviews"][0]["facet_reviews"][0][key] = value
+            self.assertFalse(check_record(data)["record_valid"])
+
+    def test_partial_target_support_cannot_fill_unknown_magnitude(self):
+        data = ranked_record()
+        data["target"]["facets"].append("合成量级")
+        for review in data["candidate_reviews"]:
+            review["facet_reviews"].append({"facet": "合成量级", "state": "unknown", "evidence_ids": []})
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["effective_status"], "unresolved")
+        self.assertIn("primary_unknown_facet", codes(result))
+        self.assertNotIn("guess_required", codes(result))
+
+    def test_independent_countercondition_does_not_force_unknown_claim_to_contradicted(self):
+        for facet_state in ("counterevidence", "relative_support"):
+            with self.subTest(state=facet_state):
+                data = ranked_record()
+                review = data["candidate_reviews"][1]
+                review["facet_reviews"][0].update(state=facet_state, evidence_ids=["D"])
+                result = check_record(data)
+                expected = "unlinked_facet_counterevidence" if facet_state == "counterevidence" else "unlinked_facet_discriminator"
+                self.assertIn(expected, codes(result))
+                # D is a separately declared opposing condition, not proof that B is false.
+                review["counterevidence_ids"] = ["D"]
+                before = deepcopy(data)
+                result = check_record(data)
+                self.assertNotIn(expected, codes(result))
+                self.assertEqual(data["candidates"][1]["claims"][0]["state"], "unknown")
+                self.assertEqual(result["submission_status"], "submitted")
+                self.assertEqual(data, before)
+                data["candidates"][1]["claims"][0]["evidence_ids"] = ["D"]
+                self.assertIn("unknown_claim_as_counterevidence", codes(check_record(data)))
+
+    def test_all_unknown_tie_is_a_valid_submitted_guess_without_promoting_claims(self):
+        data = tied_record()
+        before = deepcopy(data)
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["effective_status"], "unresolved")
+        self.assertEqual(result["primary"], "A")
+        self.assertIn("guess_choice", codes(result))
+        self.assertNotIn("guess_required", codes(result))
+        self.assertEqual(len(result["unknown_claims"]), 3)
+        self.assertEqual(data, before)
+        data["selection_basis"] = "relative_support"
+        self.assertIn("guess_required", codes(check_record(data)))
+
+    def test_temporal_notes_do_not_replace_comparison_but_completed_tie_is_recognized(self):
+        data = ranked_record()
+        data["expected_temporal_branch_ids"] = ["before", "after"]
+        data["temporal_branches"] = [
+            {"id": "before", "primary": "A", "note": "声称已经比较全部候选。"},
+            {"id": "after", "primary": None, "ranking": [["A", "B", "C"]],
+             "ranking_reason": "此合成分支全部未知，实际比较后并列。"},
+        ]
+        before = deepcopy(data)
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertEqual(result["temporal_review_statuses"], [
+            {"id": "before", "status": "incomplete"}, {"id": "after", "status": "compared_tie"}])
+        self.assertIn("missing_ranking_reason", codes(result))
+        self.assertIn("temporal_branch_tie", codes(result))
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(data, before)
+        rendered = render_summary(data)
+        self.assertIn("时间分支 after", rendered)
+        self.assertIn("声明排名：A = B = C", rendered)
+        self.assertIn("分支首选（原记录）：未填写", rendered)
+        self.assertIn(data["temporal_branches"][1]["ranking_reason"], rendered)
+
+    def test_v3_branches_require_expected_set_and_full_rankings(self):
+        data = ranked_record()
+        data["temporal_branches"] = [{"id": "before", "primary": "A", "ranking": [["A"], ["B"]],
+                                      "ranking_reason": "仅填部分候选。"}]
+        result = check_record(data)
+        self.assertIn("missing_expected_temporal_branches", codes(result))
+        self.assertIn("incomplete_ranking", codes(result))
+        data["expected_temporal_branch_ids"] = ["before", "after"]
+        self.assertIn("incomplete_branch_coverage", codes(check_record(data)))
+        data["temporal_branches"][0]["ranking"] = [["A"], ["B", "absent"]]
+        self.assertFalse(check_record(data)["record_valid"])
+
+    def test_fully_compared_stable_branches_remain_relative_declarations(self):
+        data = ranked_record()
+        data["expected_temporal_branch_ids"] = ["before", "after"]
+        data["temporal_branches"] = [
+            {"id": identifier, "primary": "A", "ranking": deepcopy(data["ranking"]),
+             "ranking_reason": "该合成分支以 D 比较后排序。"} for identifier in ("before", "after")]
+        result = check_record(data)
+        self.assertEqual(result["effective_status"], "relative_basis_declared")
+        self.assertEqual([x["status"] for x in result["temporal_review_statuses"]], ["compared", "compared"])
+
+    def test_exact_repeated_comparisons_warn_without_blocking_or_changing_evidence_status(self):
+        data = ranked_record()
+        for review in data["candidate_reviews"]:
+            review["comparison"] = "同一段非空总述；相同也可能是实际并列结论。"
+        result = check_record(data)
+        self.assertEqual(result["effective_status"], "relative_basis_declared")
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["quality_warnings"][0]["code"], "repeated_candidate_comparison")
+        self.assertEqual(result["quality_warnings"][0]["candidate_ids"], ["A", "B", "C"])
+        for review in data["candidate_reviews"]:
+            review["comparison"] = "  "
+        self.assertFalse(check_record(data)["quality_warnings"])
+
+    def test_summary_titles_use_fields_preserve_prose_and_never_correct_choice(self):
+        data = ranked_record()
+        data["candidate_reviews"][0]["comparison"] = "保留原文：这里可能仍有旧对照名称。"
+        data["ranking"] = [["B"], ["A"], ["C"]]
+        before = deepcopy(data)
+        rendered = render_summary(data)
+        self.assertIn("首选（原记录）：A", rendered)
+        self.assertIn("声明排名：B > A > C", rendered)
+        self.assertIn("候选 A；主要对照：B", rendered)
+        self.assertIn(data["candidate_reviews"][0]["comparison"], rendered)
+        self.assertLess(rendered.index("## 候选 B"), rendered.index("## 候选 A"))
+        self.assertEqual(data, before)
+
+    def test_markdown_cli_uses_separate_paths_and_protects_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, output, markdown = root / "input.json", root / "check.json", root / "summary.md"
+            original = json.dumps(ranked_record(), ensure_ascii=False)
+            source.write_text(original, encoding="utf-8")
+            command = [sys.executable, str(ROOT / "scripts/decision_record.py"), "--input", str(source),
+                       "--output", str(output), "--markdown"]
+            proc = subprocess.run(command + [str(markdown)], capture_output=True, text=True)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("候选 A；主要对照：B", markdown.read_text(encoding="utf-8"))
+            symlink, hardlink = root / "source-link.md", root / "output-link.md"
+            symlink.symlink_to(source)
+            os.link(output, hardlink)
+            before_output = output.read_text(encoding="utf-8")
+            for protected in (source, output, symlink, hardlink):
+                proc = subprocess.run(command + [str(protected)], capture_output=True, text=True)
+                self.assertEqual(proc.returncode, 2)
+                self.assertIn("拒绝覆盖", proc.stderr)
+                self.assertEqual(source.read_text(encoding="utf-8"), original)
+                self.assertEqual(output.read_text(encoding="utf-8"), before_output)
 
 
 if __name__ == "__main__":

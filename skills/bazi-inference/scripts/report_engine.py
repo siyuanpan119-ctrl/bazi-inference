@@ -217,7 +217,7 @@ def annual_facts(calculation: dict, year: int, cycles: list[dict], *, verified_t
                 "Assess natal seasonal context and roots before assigning benefit/harm; do not use element counts as strength scores.",
                 "Interpret each overlapping Da-Yun segment and preserve its transition uncertainty.",
                 "For each event candidate, list subject, action, period, source, alternative and disconfirming condition.",
-                "Do not infer medical diagnosis, sexual orientation, criminal history or death from branch relations.",
+                "For historical exercises, compare candidates and retain an explicitly tentative final choice; branch relations do not establish medical diagnoses, sensitive personal traits, criminal history or death as facts.",
             ]}
 
 
@@ -369,7 +369,7 @@ def generate_report(request: dict, *, as_of: str | None = None, years: list[int]
     # material that could quietly turn a nominal boundary choice into an answer.
     if unresolved and req.get("strict_boundary", True):
         output["annual_reports"] = []
-        output["withheld_reason"] = "Resolve birth solar-term/hour/day candidates before a single-chart annual reading; nominal Da-Yun must also be recomputed."
+        output["withheld_reason"] = "Resolve birth solar-term/hour/day candidates before claiming a single-chart annual reading; recompute each legal branch and its Da-Yun. Conditional historical-exercise choices may still be submitted with the branch uncertainty stated."
         output["dayun"] = []
         if observation_year is not None:
             observation["dayun_segments"] = []
@@ -422,7 +422,7 @@ def render_markdown(report: dict) -> str:
         if report["birth_time_precision"]["precision"] == "shichen":
             lines += ["引擎保守检查窗口端点；若原资料为已确定地支时辰，端点邻盘不等于真实候选，仍须按原始半开时辰范围核验。", ""]
     if report["status"] == "needs_verification":
-        lines += ["出生靠近计算边界，以上只是名义候选；核实时刻与候选盘后才能开展唯一命盘分析。", ""]
+        lines += ["出生靠近计算边界，以上只是名义候选；核实各合法分支后才能声称唯一命盘。可按原始范围分别计算并给条件性题目选择，须注明分支敏感性，不以名义候选冒充确定出生盘。", ""]
     if report.get("interpretation_must_be_conditional_on_time_convention"):
         lines += ["民用时、标准时、太阳时或换日约定会改变部分四柱；解读必须注明所选口径，并检查结论是否随之改变。", ""]
     if report["dayun"]:

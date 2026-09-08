@@ -7,7 +7,7 @@
 在已安装 Codex CLI 的 Mac 终端运行：
 
 ```bash
-codex plugin marketplace add siyuanpan119-ctrl/- --ref main
+codex plugin marketplace add siyuanpan119-ctrl/bazi-inference --ref main
 codex plugin add bazi-inference@bazi-inference
 ```
 
