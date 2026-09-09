@@ -2,7 +2,7 @@
 
 **教 AI Agent 根据出生时间、性别和出生地算命。** 本技能提供从排盘到判断的完整传统方法：看月令和根气、辨旺衰、取格局用神与相神、分析成败救应，再推进到大运、流年、流月，回答用户实际关心的问题。
 
-当前版本 **0.4.5**。包含八字基础推演与可选紫微斗数独立排盘、合参。目标是减少计算错误和推理跳步，让解读更一致、更有区分力。具体人生事件预测准确率及加入紫微后的增益尚未得到独立验证。
+当前版本 **0.5.4**，本轮整理后的维护基线。保留八字推演、历史时间核验与可选紫微合参，精简日常使用流程，修正事件与年份混淆、同类结果比较及无新依据改判。维护推荐不代表准确率领先；具体事件预测及合参增益仍未验证。
 
 ## 普通用户怎样用
 
@@ -35,7 +35,7 @@
 
 技能主入口：[SKILL.md](skills/bazi-inference/SKILL.md)。核心教学：[推演主流程](skills/bazi-inference/references/inference.md)、[格局条件树](skills/bazi-inference/references/patterns.md)、[具体问题判断](skills/bazi-inference/references/question-analysis.md)、[年度和大运报告](skills/bazi-inference/references/annual-report.md)。
 
-具体事件增加[条件与反证检查](skills/bazi-inference/references/event-discrimination.md)，区分事件对象、阶段和实际时间范围。v0.4.5按用户要求完整作答并给出首选；依据不足时明确标注猜测，不用未决状态代替最终答案。[v3判断记录](skills/bazi-inference/references/decision-record.md)统一候选比较维度、首选与备选排序及时间分支，要求记录与最终答卷一致；未知不能当反证。检查通过不证明预测有效。
+具体事件使用[条件与竞争解释比较](skills/bazi-inference/references/event-discrimination.md)：已给事件只比较尚未知的时间；区分能力、现实活动与完成结果；在同一领域继续比较最接近的表现。普通咨询和[批量答卷](skills/bazi-inference/references/exercise-mode.md)默认简短原始底稿，按要求完整回答。只有明确要求结构化审计或机器评测时才启用[v3判断记录](skills/bazi-inference/references/decision-record.md)。原记录检查标准保留，无法区分的结果如实标注，不把可提交记录称为已经验证的判断。
 
 输入只明确观察年份时使用 `--as-of-year YYYY`，不将计算锚点冒充观察日期；假设地点、代表时辰及其不确定范围须保留到解释中。普通精确日期接口保持兼容。
 
@@ -77,6 +77,6 @@ python skills/bazi-inference/scripts/report_engine.py \
 
 我们使用命例题、答案与反例来发现推理问题，再将能复用的判断方法写回技能。开发者工具位于 [maintainer/](maintainer/README.md)：保留原预测、对答案、记录规则改动、比较旧新版结果。普通使用者无需读取或运行这些工具。
 
-每次发布更新教学方法、版本和验证记录。已知答案只能用于提出和修正规则；命中率是否提高，需要未见答案的新人物和事前固定的比较。新版[复盘与准确率验证流程](skills/bazi-inference/references/review-and-evaluation.md)规定冻结原答卷、定位错误和用新命例比较版本。[原0.4.1与0.4.2比较协议](maintainer/references/next-trial.md)保留为历史待题计划，未生成成绩，也不代表0.4.5已完成对照验证。修改技能不会训练底层AI模型权重。
+每次发布更新教学方法、版本和验证记录。已知答案只能用于提出和修正规则；命中率是否提高，需要未见答案的新人物和事前固定的比较。新版[复盘与准确率验证流程](skills/bazi-inference/references/review-and-evaluation.md)规定冻结原答卷、定位错误和用新命例比较版本。最近一次0.5.2与0.5.3同题冻结比较中，两版均为16/40（40%），新版改对5题、改错5题，没有净提升。0.5.4依据暴露的通用问题作维护修订，本身尚未获得新的预测成绩。[原0.4.1与0.4.2比较协议](maintainer/references/next-trial.md)仅保留为历史计划。修改技能不会训练底层AI模型权重。
 
 验证范围及未决问题见 [EVALUATION.md](EVALUATION.md)。公开仓库不包含私人原始题库或敏感生平资料；许可证见 [LICENSE](LICENSE)。

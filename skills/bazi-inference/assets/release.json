@@ -1,28 +1,19 @@
 {
   "name": "bazi-inference",
-  "version": "0.4.5",
+  "version": "0.5.4",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
   "contains_private_training_cases": false,
   "release_scope": [
-    "birth-chart calculation",
-    "traditional Bazi inference teaching",
-    "specific-question interpretation",
-    "annual and luck-cycle reports",
-    "optional local Ziwei chart and horoscope calculation",
-    "independent BaZi / Ziwei interpretation and fixed fusion protocol",
-    "candidate discrimination and branch-complete inference",
-    "complete scoped Ziwei evidence context and Gregorian-year segmentation",
-    "condition-based event discrimination and symmetric conflict handling",
-    "candidate-level decision records with explicit unresolved states and branch coverage checks",
-    "symmetric review of every candidate including retained baseline choices",
-    "year-only observation scope and explicit time and place scenarios",
-    "answer-first final choices with evidence uncertainty recorded separately",
-    "context-based historical-exercise answering and explicit submission status without keyword abstention",
-    "v3 target-facet reviews, authoritative tied rankings and explicit branch comparisons",
-    "review quality warnings and consistent summaries without automatic answer selection",
-    "frozen-answer review and case-grouped unseen-example evaluation protocol"
+    "retain verified birth-chart, historical-clock, Bazi and optional Ziwei calculation interfaces",
+    "consultation-first entrypoint with progressive loading; simple frozen records for ordinary and batch use",
+    "separate supplied events from unknown occurrence and timing without enlarging original time or quantifier scope",
+    "compare nearest competing outcomes within the same field before selecting a specific event or identity",
+    "keep ability, opportunity, actual activity and completed outcomes at their supported level",
+    "fusion changes require a new target-relevant distinction; no repeated selection after unresolved comparison without new material",
+    "retain v3 schema and checker standards for explicitly requested structured audits; disclose unresolved reasoning",
+    "maintenance recommendation does not claim a predictive-accuracy winner or encode case answers"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",
@@ -39,5 +30,17 @@
     "minimum_node": "20",
     "fusion_gain_validated": false,
     "annual_coverage": "Gregorian year segments at declared annual/decadal boundaries; no full monthly coverage claim"
-  }
+  },
+  "optimization_goal": "面向普通用户，改进可迁移的命理推演技巧与实际解读能力；多轮答题和复盘用于验证方法，不能以评分、记录或语气改进冒充准确率提升。",
+  "default_workflow": "consultation-first: chart, natal mechanism, luck-cycle changes, concrete interpretation",
+  "evaluation_workflow": "simple frozen per-question records by default; v3 only for explicitly requested structured audit or machine evaluation",
+  "validation_scope": [
+    "125 core Python and 92 repository maintainer software tests passed (217 total, no failures, errors or skips)",
+    "14 local Ziwei Node tests passed (no failures, cancellations or skips)",
+    "27 local Markdown and routed resource references checked with no missing targets",
+    "independent read-only review found no release-blocking instruction conflicts; single-system preference and audit trigger wording aligned",
+    "one independent-context synthetic ordinary consultation completed actual offline chart and two-year comparison; no outcome key or predictive accuracy measured",
+    "Bazi and Ziwei calculation engines, dependencies, and v3 input schema/checker unchanged from 0.5.3; maintenance instructions do not establish predictive gains"
+  ],
+  "release_kind": "consolidated-maintenance"
 }

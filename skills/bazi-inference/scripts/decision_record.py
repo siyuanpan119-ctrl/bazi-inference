@@ -27,9 +27,12 @@ LIMITS = [
     "不同 record_ref 不证明两套分析独立；同票不提高可信度。",
     "v1 未提供 candidate_reviews 时只做旧版检查；列出 against 不证明已经逐候选审查。",
     "unknown/missing_support 只按显式标注检查；传统相容不证明医学诊断、法律状态或其他现实事实。",
-    "effective_status 是证据审查状态，不是拒答开关；未决记录仍保留 primary 作为本轮选择，交付时须标明猜测或分歧。",
+    "effective_status 是证据审查状态，不是拒答开关；未决记录仍保留 primary，交付时如实说明相对支持及其未知、猜测或分歧。",
     "v3 的维度、排名及区分依据仍是作者声明；不验证事件预测力，也不能识别所有自然语言矛盾。",
     "quality_warnings 只提示复核，不证明内容错误，不改变交卷状态。",
+    "submission_status 只表示已填写首选；review_completion_status 只表示声明记录是否齐备，不表示实质推断已完成。",
+    "primary_ranking_status 单独报告相对排序声明；未知子事实可与相对支持并存，不能据此补齐完整事件。",
+    "分支专属 calculation 引用只检查 kind、status 和不同 source_ref；引用内容与分析独立性仍须人工核对。",
 ]
 
 
@@ -174,7 +177,7 @@ def _validate(record):
         s.ids(record["expected_temporal_branch_ids"], "$.expected_temporal_branch_ids")
     if "temporal_branches" in record:
         for branch, path in s.records(record["temporal_branches"], "$.temporal_branches", ("id", "primary"),
-                                      ("note",) + (("ranking", "ranking_reason") if v3 else ())):
+                                      ("note",) + (("ranking", "ranking_reason", "basis_evidence_ids") if v3 else ())):
             s.string(branch.get("primary"), path + ".primary", nullable=True)
             if "note" in branch:
                 s.string(branch["note"], path + ".note", empty=True)
@@ -183,6 +186,8 @@ def _validate(record):
                     s.ranking(branch["ranking"], path + ".ranking")
                 if "ranking_reason" in branch:
                     s.string(branch["ranking_reason"], path + ".ranking_reason", empty=True)
+                if "basis_evidence_ids" in branch:
+                    s.ids(branch["basis_evidence_ids"], path + ".basis_evidence_ids")
     if "fusion" in record:
         fusion = record["fusion"]
         if s.obj(fusion, "$.fusion", ("bazi", "ziwei", "override_reason", "discriminator_ids"),
@@ -232,6 +237,9 @@ def _validate(record):
                     reference(value, evidence_ids, f"{path}.facet_reviews[{j}].evidence_ids[{k}]")
     for i, branch in enumerate(record.get("temporal_branches", [])):
         reference(branch["primary"], candidate_ids, f"$.temporal_branches[{i}].primary")
+        if v3:
+            for j, value in enumerate(branch.get("basis_evidence_ids", [])):
+                reference(value, evidence_ids, f"$.temporal_branches[{i}].basis_evidence_ids[{j}]")
     if v3:
         ranked_entries = [(record, "$")] + [(branch, f"$.temporal_branches[{i}]")
                           for i, branch in enumerate(record.get("temporal_branches", []))]
@@ -254,6 +262,51 @@ def _highest_other(ranking, excluded):
         if remaining:
             return remaining
     return []
+
+
+def _repeated_comparison_warnings(reviews):
+    """Locate literal repetition only; never assess a comparison's meaning.
+
+    Preserve exact nonempty matches. For differing text, require a shared tail
+    of at least 80 characters covering at least 80% of *both* comparisons.
+    Only outer whitespace is ignored; short phrases and paraphrases are not
+    evidence of copied analysis. These conservative thresholds are not scores.
+    """
+    texts = [review["comparison"].strip() for review in reviews]
+    exact_groups, suffix_groups = {}, {}
+    for i, text in enumerate(texts):
+        if text:
+            exact_groups.setdefault(text, set()).add(i)
+        for j in range(i):
+            other = texts[j]
+            if not text or not other or text == other:
+                continue
+            shared = 0
+            for left, right in zip(reversed(text), reversed(other)):
+                if left != right:
+                    break
+                shared += 1
+            if shared >= 80 and shared * 5 >= max(len(text), len(other)) * 4:
+                suffix_groups.setdefault(text[-shared:], set()).update((j, i))
+    warnings = []
+    for match_type, groups in (("exact", exact_groups), ("dominant_shared_suffix", suffix_groups)):
+        for shared_text, indices in groups.items():
+            if len(indices) < 2:
+                continue
+            indices = sorted(indices)
+            identifiers = [reviews[i]["id"] for i in indices]
+            description = "非空比较文字完全重复" if match_type == "exact" else "比较文字共用占主体的相同长尾"
+            warning = {
+                "code": "repeated_candidate_comparison", "path": "$.candidate_reviews",
+                "candidate_ids": identifiers, "match_type": match_type,
+                "comparison_paths": [f"$.candidate_reviews[{i}].comparison" for i in indices],
+                "message": "候选 " + "、".join(identifiers) + " 的" + description
+                           + "，请复核是否逐项比较；重复也可能真实反映相同结论，不阻断交卷。",
+            }
+            if match_type == "dominant_shared_suffix":
+                warning["shared_suffix_chars"] = len(shared_text)
+            warnings.append(warning)
+    return warnings
 
 
 def _check_v3(record, result, issue, discriminators):
@@ -285,6 +338,7 @@ def _check_v3(record, result, issue, discriminators):
             complete = False
         if entry["primary"] is not None and (not ranking or entry["primary"] not in ranking[0]):
             issue("primary_outside_top_rank", path + ".primary", "首选与最高排名层不一致；保留原选择，须复核声明。")
+            complete = False
         return complete
 
     ranking_review(record, "$")
@@ -347,20 +401,97 @@ def _check_v3(record, result, issue, discriminators):
     branches = record.get("temporal_branches", [])
     if "temporal_branches" in record and "expected_temporal_branch_ids" not in record:
         issue("missing_expected_temporal_branches", "$.expected_temporal_branch_ids", "v3 声明时间分支时须同时列出应审分支集合。")
+    branch_sources = [
+        {evidence[x]["source_ref"].strip() for x in branch.get("basis_evidence_ids", [])
+         if evidence[x]["kind"] == "calculation" and evidence[x].get("status", "available") == "available"}
+        for branch in branches
+    ]
+    repeated_reasons = {}
+    for i, branch in enumerate(branches):
+        reason = " ".join(branch.get("ranking_reason", "").split())
+        if reason:
+            repeated_reasons.setdefault(reason, []).append(i)
+    missing_branch_basis = set()
     result["temporal_review_statuses"] = []
     for i, branch in enumerate(branches):
         path = f"$.temporal_branches[{i}]"
         complete = ranking_review(branch, path)
         branch_ranking = branch.get("ranking", [])
         tied = bool(branch_ranking and len(branch_ranking[0]) > 1)
+        if len(branches) > 1:
+            other_sources = set().union(*(sources for j, sources in enumerate(branch_sources) if j != i))
+            if not branch_sources[i] - other_sources:
+                missing_branch_basis.add(i)
+                issue("missing_branch_specific_basis", path + ".basis_evidence_ids",
+                      "该分支缺少专属且可用的 calculation 来源引用；补记实际分支计算及对应字段，再复核排序。不能只改 ID 或措辞，不能编造依据。")
         result["temporal_review_statuses"].append({
             "id": branch["id"],
-            "status": "incomplete" if not complete else ("compared_tie" if tied else "compared"),
+            "status": "incomplete" if not complete else ("needs_review" if i in missing_branch_basis
+                      else ("compared_tie" if tied else "compared")),
         })
         if complete and tied:
-            issue("temporal_branch_tie", path + ".ranking", "该分支已完成声明比较且首层并列；并列不等于漏填分析。")
+            issue("temporal_branch_tie", path + ".ranking", "该分支已填写排名且首层并列；计算依据是否齐备另见分支审查，并列本身不表示实质推断已完成。")
         elif complete and branch["primary"] is None:
             issue("missing_branch_choice", path + ".primary", "该分支已填写排序，但未声明分支首选。")
+    for indices in repeated_reasons.values():
+        if len(indices) > 1 and missing_branch_basis.intersection(indices):
+            result["quality_warnings"].append({
+                "code": "copied_temporal_comparison", "path": "$.temporal_branches",
+                "branch_ids": [branches[i]["id"] for i in indices],
+                "message": "这些分支复用相同非空排序理由，且至少一支缺少专属计算引用；须回到各分支计算分别复核，相同结论可以保留，不能靠改写句子消除缺口。",
+            })
+
+
+def _review_outputs(record, result):
+    """Separate submission, declaration coverage and relative rank, without scoring."""
+    if record["schema_version"] != 3:
+        result["review_actions"] = ["旧版记录未执行 v3 排序及分支复核；如需新审查，回到实际推演补记，不能只改版本号。"]
+    else:
+        # These are honest unresolved outcomes, not missing record work. They do
+        # not erase a distinct, linked relative basis in another target facet.
+        outcomes = {"primary_unknown_claim", "primary_unknown_facet", "required_unknowns",
+                    "review_required_unknowns", "no_discriminator", "guess_choice", "forced_choice",
+                    "temporal_branch_tie", "unstable_temporal_branch"}
+        issue_codes = {item["code"] for item in result["issues"]}
+        gaps = issue_codes - outcomes
+        result["review_completion_status"] = ("needs_review" if gaps or result["quality_warnings"]
+                                              else "declared_complete")
+        ranking = record.get("ranking", [])
+        top = ranking[0] if ranking else []
+        primary, alternative = record["primary"], record["strongest_alternative"]
+        malformed = gaps.intersection({"empty_ranking", "duplicate_ranked_candidate", "incomplete_ranking"})
+        if malformed or not top:
+            result["primary_ranking_status"] = "unsupported"
+        elif primary not in top:
+            result["primary_ranking_status"] = "inconsistent"
+        elif len(top) > 1:
+            result["primary_ranking_status"] = "tied"
+        elif (record.get("selection_basis") != "relative_support" or gaps
+              or "no_discriminator" in issue_codes):
+            result["primary_ranking_status"] = "unsupported"
+        else:
+            result["primary_ranking_status"] = "relative_basis_declared"
+        allowed = _highest_other(ranking, primary)
+        if not malformed and primary in top and alternative in allowed:
+            result["alternative_role"] = ("tied_comparator" if alternative in top or len(allowed) > 1
+                                          else "ranked_alternative")
+        actions = []
+        if "missing_branch_specific_basis" in gaps:
+            actions.append("回到各时间分支的实际计算，补记专属 calculation 引用及其改变/不改变排序的理由；结论可相同，缺依据就保留需复核。")
+        if any(item["code"] == "empty_candidate_basis" for item in result["quality_warnings"]):
+            actions.append("核查是否漏读已有计算、漏拆目标维度或漏审反向条件；若实际复核后仍无可用依据，保留空引用、未知与并列交卷，不强求非空。")
+        if result["primary_ranking_status"] == "tied":
+            actions.append("首层仍并列：首选与对照如实标猜测/并列，不称任何并列项已经胜出。")
+        elif result["primary_ranking_status"] in ("unsupported", "inconsistent"):
+            actions.append("按 issues 回查首选、全部候选排序及目标维度的依据连接；无可取得的区分依据时保留未知，并将本轮选择标 guess。")
+        if result["unknown_claims"]:
+            actions.append("保留未知子事实；已有相对支持只支持对应维度，未知既不补成事实，也不作为其他候选的反证。")
+        if not actions:
+            actions.append("人工复核所引条件是否实际区分候选；声明记录齐备不证明预测有效。")
+        result["review_actions"] = actions
+    if any(item["code"] == "repeated_candidate_comparison" for item in result["quality_warnings"]):
+        result["review_actions"].append("按重复提示中的候选和 comparison_paths 回读逐项比较，核对共有背景、各候选与其主要对照的实际区别及局限；重复总述可以对应真实并列，不为消除提示改写句子或编造差异。文字匹配不能判断自然语言是否真实区分。")
+    result["review_actions"].append("仍须交付单一首选；检查器不选答案，证据未决不阻止交卷，也不能为通过检查编造证据。")
 
 
 def check_record(record):
@@ -377,27 +508,30 @@ def check_record(record):
             "submitted" if data.get("primary") is not None else "missing_choice"),
         "primary": data.get("primary"), "strongest_alternative": data.get("strongest_alternative"),
         "decision_mode": data.get("decision_mode"),
+        "primary_ranking_status": "not_checked", "alternative_role": "unverified_alternative",
+        "review_completion_status": "needs_review" if errors else "not_checked", "review_actions": [],
         "forced": data.get("decision_mode") == "forced_choice",
         "errors": errors, "issues": [], "quality_warnings": [], "unknown_claims": [], "limits": list(LIMITS),
     }
     if errors:
+        result["review_actions"] = ["先按 errors 修正字段或引用，再检查；不能让检查器补选答案或编造依据。"]
         return result
 
     def issue(code, path, message):
         result["issues"].append({"code": code, "path": path, "message": message})
 
-    repeated_comparisons = {}
-    for review in record.get("candidate_reviews", []):
-        comparison_text = review["comparison"].strip()
-        if comparison_text:
-            repeated_comparisons.setdefault(comparison_text, []).append(review["id"])
-    for identifiers in repeated_comparisons.values():
-        if len(identifiers) > 1:
-            result["quality_warnings"].append({
-                "code": "repeated_candidate_comparison", "path": "$.candidate_reviews",
-                "candidate_ids": identifiers,
-                "message": "这些候选的非空比较文字完全重复，请复核是否逐项比较；重复也可能真实反映相同结论，不阻断交卷。",
-            })
+    reviews = record.get("candidate_reviews", [])
+    result["quality_warnings"].extend(_repeated_comparison_warnings(reviews))
+    if v3 and reviews and all(
+            not review["support_ids"] and not review["counterevidence_ids"]
+            and review.get("facet_reviews")
+            and all(facet["state"] == "unknown" for facet in review["facet_reviews"])
+            for review in reviews):
+        result["quality_warnings"].append({
+            "code": "empty_candidate_basis", "path": "$.candidate_reviews",
+            "candidate_ids": [review["id"] for review in reviews],
+            "message": "候选审查的支持、反向依据均为空，所有已列维度均未知；请复核是否漏读计算、漏拆目标或漏审反向条件。空表也可能是真实无依据的结果，不证明比较虚假，不要求编造非空字段。",
+        })
 
     primary = record["primary"]
     candidates = {item["id"]: item for item in record["candidates"]}
@@ -557,6 +691,7 @@ def check_record(record):
         issue("forced_choice", "$.decision_mode", "按要求保留强制选择；该选择不能解除未知或分歧。")
     if result["issues"]:
         result["effective_status"] = "unresolved"
+    _review_outputs(record, result)
     return result
 
 
@@ -569,9 +704,18 @@ def render_summary(record):
     def label(value):
         return "未填写" if value is None else str(value).replace("\n", " ").replace("\r", " ")
 
+    alternative_label = {"tied_comparator": "并列对照", "ranked_alternative": "排序备选",
+                         "unverified_alternative": "待核对照"}[result["alternative_role"]]
+    rank_labels = {"relative_basis_declared": "首选唯一领先且有连接的相对依据声明（未验证效度）",
+                   "tied": "首层并列，首选未被区分为更优", "unsupported": "尚无完整的相对排序依据声明",
+                   "inconsistent": "首选与声明排名不一致", "not_checked": "未执行 v3 排序审查"}
+    completion_labels = {"declared_complete": "声明记录齐备（不表示实质推断已完成）",
+                         "needs_review": "需要补审", "not_checked": "未执行 v3 完整性审查"}
     lines = ["# 判断记录摘要", "", f"首选（原记录）：{label(record['primary'])}",
-             f"最强备选（原记录）：{label(record['strongest_alternative'])}",
-             f"交卷状态：{result['submission_status']}；证据审查：{result['effective_status']}"]
+             f"{alternative_label}（原记录）：{label(record['strongest_alternative'])}",
+             f"交卷状态：{result['submission_status']}；证据审查：{result['effective_status']}",
+             f"相对排序：{rank_labels[result['primary_ranking_status']]}",
+             f"声明完整性：{completion_labels[result['review_completion_status']]}"]
     ranking = record.get("ranking", [])
     if record["schema_version"] == 3:
         rank_text = " > ".join(" = ".join(label(x) for x in group) for group in ranking)
@@ -593,15 +737,19 @@ def render_summary(record):
                       "", review["comparison"]])
         if record["schema_version"] == 3:
             allowed = _highest_other(ranking, identifier)
-            lines.extend(["", "排名允许的最强备选：" + "、".join(label(x) for x in allowed)])
+            lines.extend(["", "排名允许的主要对照：" + "、".join(label(x) for x in allowed)])
             for facet in review.get("facet_reviews", []):
                 lines.append(f"- {label(facet['facet'])}：{facet['state']}；依据："
                              + ("、".join(label(x) for x in facet["evidence_ids"]) or "无"))
+    branch_statuses = {item["id"]: item["status"] for item in result.get("temporal_review_statuses", [])}
     for branch in record.get("temporal_branches", []):
         branch_ranking = " > ".join(" = ".join(label(x) for x in group) for group in branch.get("ranking", []))
         lines.extend(["", f"## 时间分支 {label(branch['id'])}", "",
                       f"分支首选（原记录）：{label(branch['primary'])}",
-                      f"声明排名：{branch_ranking or '未填写'}", "", "排序说明（原文）：",
+                      f"声明排名：{branch_ranking or '未填写'}",
+                      f"分支审查：{branch_statuses.get(branch['id'], '未执行 v3 分支审查')}",
+                      "计算依据引用：" + ("、".join(label(x) for x in branch.get("basis_evidence_ids", [])) or "未填写"),
+                      "", "排序说明（原文）：",
                       branch.get("ranking_reason", "未填写")])
         if branch.get("note"):
             lines.extend(["", "分支备注（原文）：", branch["note"]])
@@ -611,6 +759,8 @@ def render_summary(record):
     if result["quality_warnings"]:
         lines.extend(["", "## 文字复核提示", ""])
         lines.extend("- " + item["message"] for item in result["quality_warnings"])
+    lines.extend(["", "## 下一步复核", ""])
+    lines.extend("- " + action for action in result["review_actions"])
     lines.extend(["", "此摘要只展示声明与一致性检查，不验证预测或现实事实。", ""])
     return "\n".join(lines)
 
@@ -635,6 +785,9 @@ def main(argv=None):
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         result = {"schema_version": 1, "record_valid": False, "effective_status": "invalid",
                   "submission_status": "invalid_record",
+                  "primary_ranking_status": "not_checked", "alternative_role": "unverified_alternative",
+                  "review_completion_status": "needs_review",
+                  "review_actions": ["先按 errors 修正输入，再检查；不能让检查器补选答案或编造依据。"],
                   "errors": [{"code": "input_error", "path": "$", "message": str(exc)}],
                   "issues": [], "quality_warnings": [], "limits": list(LIMITS)}
     else:

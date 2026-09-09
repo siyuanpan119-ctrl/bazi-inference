@@ -422,7 +422,7 @@ def render_markdown(report: dict) -> str:
         if report["birth_time_precision"]["precision"] == "shichen":
             lines += ["引擎保守检查窗口端点；若原资料为已确定地支时辰，端点邻盘不等于真实候选，仍须按原始半开时辰范围核验。", ""]
     if report["status"] == "needs_verification":
-        lines += ["出生靠近计算边界，以上只是名义候选；核实各合法分支后才能声称唯一命盘。可按原始范围分别计算并给条件性题目选择，须注明分支敏感性，不以名义候选冒充确定出生盘。", ""]
+        lines += ["出生靠近计算边界，以上只是名义候选；核实各合法分支后才能声称唯一命盘。可按原始范围分别计算并给条件性解读，注明哪些判断受分支影响，不以名义候选冒充确定出生盘。", ""]
     if report.get("interpretation_must_be_conditional_on_time_convention"):
         lines += ["民用时、标准时、太阳时或换日约定会改变部分四柱；解读必须注明所选口径，并检查结论是否随之改变。", ""]
     if report["dayun"]:

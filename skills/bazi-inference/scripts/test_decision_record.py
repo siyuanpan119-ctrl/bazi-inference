@@ -14,6 +14,11 @@ from decision_record import check_record, render_summary
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SYNTHETIC_COMPARISON_OVERVIEW = (
+    "这是用于文字检查的合成总述：已有材料仅说明共同背景，尚未建立具体条件之间的对应关系。"
+    "各项必要前提均须分别核对；缺少支持不能证明另一候选成立，也不能转为任何候选的反证。"
+    "如果复核后仍无可用区别，可以诚实保留未知与并列，并注明所提交首选只是本轮猜测。"
+)
 
 
 def record():
@@ -90,6 +95,16 @@ def tied_record():
         review["facet_reviews"][0].update(state="unknown", evidence_ids=[])
     data["candidate_reviews"][0].update(support_ids=[], required_unknowns=["合成条件甲"])
     return data
+
+
+def add_branch_basis(data):
+    """Declare separate synthetic calculation fields; no real examples or labels."""
+    for branch in data["temporal_branches"]:
+        identifier = "CALC_" + branch["id"]
+        data["evidence"].append({"id": identifier, "kind": "calculation", "scope": "background",
+                                 "source_ref": "synthetic:branches#" + branch["id"],
+                                 "statement": "该合成分支的独立计算字段，内容需人工审核。"})
+        branch["basis_evidence_ids"] = [identifier]
 
 
 class DecisionRecordTests(unittest.TestCase):
@@ -459,6 +474,9 @@ class RankedDecisionRecordTests(unittest.TestCase):
         self.assertEqual(result["review_standard"], "target_facets_v3")
         self.assertEqual(result["effective_status"], "relative_basis_declared")
         self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["primary_ranking_status"], "relative_basis_declared")
+        self.assertEqual(result["alternative_role"], "ranked_alternative")
+        self.assertEqual(result["review_completion_status"], "declared_complete")
         self.assertNotIn("probability", result)
         self.assertEqual(data, before)
 
@@ -472,6 +490,8 @@ class RankedDecisionRecordTests(unittest.TestCase):
         self.assertEqual(result["primary"], "A")
         self.assertEqual(result["submission_status"], "submitted")
         self.assertEqual(result["effective_status"], "unresolved")
+        self.assertEqual(result["primary_ranking_status"], "inconsistent")
+        self.assertEqual(result["review_completion_status"], "needs_review")
 
     def test_alternatives_use_highest_remaining_tier_and_primary_fields_stay_consistent(self):
         data = ranked_record()
@@ -554,6 +574,7 @@ class RankedDecisionRecordTests(unittest.TestCase):
                 result = check_record(data)
                 self.assertTrue(result["record_valid"])
                 self.assertIn("guess_required", codes(result))
+                self.assertEqual(result["primary_ranking_status"], "unsupported")
                 if state == "relative_support":
                     self.assertIn("background_as_discriminator", codes(result))
                     self.assertIn("unlinked_facet_discriminator", codes(result))
@@ -571,9 +592,19 @@ class RankedDecisionRecordTests(unittest.TestCase):
                 result = check_record(data)
                 self.assertIn("unlinked_facet_discriminator", codes(result))
                 self.assertIn("guess_required", codes(result))
+                self.assertEqual(result["primary_ranking_status"], "unsupported")
         data = ranked_record()
         data["candidate_reviews"][1]["facet_reviews"][0].update(state="relative_support", evidence_ids=["D"])
         self.assertIn("unlinked_facet_discriminator", codes(check_record(data)))
+
+    def test_unique_top_without_comparison_discriminator_is_not_relative_support(self):
+        data = ranked_record()
+        data["comparison"]["discriminator_ids"] = []
+        result = check_record(data)
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertIn("no_discriminator", codes(result))
+        self.assertEqual(result["primary_ranking_status"], "unsupported")
+        self.assertEqual(result["primary"], "A")
 
     def test_facet_evidence_and_names_have_validated_references(self):
         for key, value in (("facet", "absent"), ("evidence_ids", ["absent"]), ("state", "certain")):
@@ -592,6 +623,24 @@ class RankedDecisionRecordTests(unittest.TestCase):
         self.assertEqual(result["effective_status"], "unresolved")
         self.assertIn("primary_unknown_facet", codes(result))
         self.assertNotIn("guess_required", codes(result))
+        self.assertEqual(result["primary_ranking_status"], "relative_basis_declared")
+        self.assertEqual(result["review_completion_status"], "declared_complete")
+
+    def test_relative_ranking_survives_unknown_clause_without_promoting_it_to_fact(self):
+        data = ranked_record()
+        data["candidates"][0]["claims"].append({"text": "附带细节未知", "state": "unknown", "evidence_ids": []})
+        data["candidate_reviews"][0]["required_unknowns"] = ["附带细节未知"]
+        data["comparison"]["required_unknowns"] = ["附带细节未知"]
+        before = deepcopy(data)
+        result = check_record(data)
+        self.assertEqual(result["primary_ranking_status"], "relative_basis_declared")
+        self.assertEqual(result["effective_status"], "unresolved")
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["review_completion_status"], "declared_complete")
+        self.assertNotIn("guess_required", codes(result))
+        self.assertNotIn("primary_contradicted", codes(result))
+        self.assertIn("未知既不补成事实", " ".join(result["review_actions"]))
+        self.assertEqual(data, before)
 
     def test_independent_countercondition_does_not_force_unknown_claim_to_contradicted(self):
         for facet_state in ("counterevidence", "relative_support"):
@@ -624,9 +673,33 @@ class RankedDecisionRecordTests(unittest.TestCase):
         self.assertIn("guess_choice", codes(result))
         self.assertNotIn("guess_required", codes(result))
         self.assertEqual(len(result["unknown_claims"]), 3)
+        self.assertEqual(result["primary_ranking_status"], "tied")
+        self.assertEqual(result["alternative_role"], "tied_comparator")
+        self.assertEqual(result["review_completion_status"], "needs_review")
+        self.assertIn("empty_candidate_basis", {x["code"] for x in result["quality_warnings"]})
+        self.assertIn("漏读已有计算", " ".join(result["review_actions"]))
+        self.assertIn("不强求非空", " ".join(result["review_actions"]))
+        summary = render_summary(data)
+        self.assertIn("并列对照（原记录）：B", summary)
+        self.assertIn("首选未被区分为更优", summary)
+        self.assertIn("声明完整性：需要补审", summary)
+        self.assertNotIn("最强备选", summary)
+        self.assertIn("仍须交付单一首选", " ".join(result["review_actions"]))
         self.assertEqual(data, before)
         data["selection_basis"] = "relative_support"
         self.assertIn("guess_required", codes(check_record(data)))
+
+    def test_reviewed_shared_background_still_allows_tie_without_empty_basis_warning(self):
+        data = tied_record()
+        data["candidates"][0]["claims"].append({"text": "合成共有背景", "state": "supported", "evidence_ids": ["BG"]})
+        data["candidate_reviews"][0]["support_ids"] = ["BG"]
+        data["candidate_reviews"][0]["facet_reviews"][0].update(state="shared_background", evidence_ids=["BG"])
+        result = check_record(data)
+        self.assertEqual(result["primary_ranking_status"], "tied")
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["review_completion_status"], "declared_complete")
+        self.assertNotIn("empty_candidate_basis", {x["code"] for x in result["quality_warnings"]})
+        self.assertIn("不表示实质推断已完成", render_summary(data))
 
     def test_temporal_notes_do_not_replace_comparison_but_completed_tie_is_recognized(self):
         data = ranked_record()
@@ -636,6 +709,7 @@ class RankedDecisionRecordTests(unittest.TestCase):
             {"id": "after", "primary": None, "ranking": [["A", "B", "C"]],
              "ranking_reason": "此合成分支全部未知，实际比较后并列。"},
         ]
+        add_branch_basis(data)
         before = deepcopy(data)
         result = check_record(data)
         self.assertTrue(result["record_valid"])
@@ -669,9 +743,70 @@ class RankedDecisionRecordTests(unittest.TestCase):
         data["temporal_branches"] = [
             {"id": identifier, "primary": "A", "ranking": deepcopy(data["ranking"]),
              "ranking_reason": "该合成分支以 D 比较后排序。"} for identifier in ("before", "after")]
+        add_branch_basis(data)
         result = check_record(data)
         self.assertEqual(result["effective_status"], "relative_basis_declared")
         self.assertEqual([x["status"] for x in result["temporal_review_statuses"]], ["compared", "compared"])
+        self.assertEqual(result["primary_ranking_status"], "relative_basis_declared")
+        self.assertEqual(result["review_completion_status"], "declared_complete")
+        self.assertNotIn("copied_temporal_comparison", {x["code"] for x in result["quality_warnings"]})
+
+    def test_copied_branches_without_distinct_computation_remain_submitted_and_need_review(self):
+        for variant in ("absent", "same_id", "same_source", "interpretation", "unavailable"):
+            with self.subTest(variant=variant):
+                data = ranked_record()
+                data["expected_temporal_branch_ids"] = ["before", "after"]
+                data["temporal_branches"] = [
+                    {"id": identifier, "primary": "A", "ranking": deepcopy(data["ranking"]),
+                     "ranking_reason": "复用同一段合成比较理由。"} for identifier in ("before", "after")]
+                if variant != "absent":
+                    add_branch_basis(data)
+                    if variant == "same_id":
+                        data["temporal_branches"][1]["basis_evidence_ids"] = ["CALC_before"]
+                    elif variant == "same_source":
+                        data["evidence"][-1]["source_ref"] = data["evidence"][-2]["source_ref"]
+                    elif variant == "interpretation":
+                        for evidence in data["evidence"][-2:]:
+                            evidence["kind"] = "traditional_interpretation"
+                    else:
+                        for evidence in data["evidence"][-2:]:
+                            evidence["status"] = "unknown"
+                before = deepcopy(data)
+                result = check_record(data)
+                self.assertTrue(result["record_valid"])
+                self.assertEqual(result["submission_status"], "submitted")
+                self.assertEqual(result["primary"], "A")
+                self.assertEqual(result["effective_status"], "unresolved")
+                self.assertEqual(result["primary_ranking_status"], "unsupported")
+                self.assertEqual(result["review_completion_status"], "needs_review")
+                self.assertEqual([x["status"] for x in result["temporal_review_statuses"]], ["needs_review", "needs_review"])
+                self.assertIn("missing_branch_specific_basis", codes(result))
+                self.assertIn("copied_temporal_comparison", {x["code"] for x in result["quality_warnings"]})
+                self.assertIn("不能为通过检查编造证据", " ".join(result["review_actions"]))
+                self.assertIn("回到各时间分支的实际计算", render_summary(data))
+                self.assertEqual(data, before)
+
+    def test_missing_branch_basis_is_not_cured_by_rephrasing_and_bad_ids_are_invalid(self):
+        data = ranked_record()
+        data["expected_temporal_branch_ids"] = ["before", "after"]
+        data["temporal_branches"] = [
+            {"id": identifier, "primary": "A", "ranking": deepcopy(data["ranking"]),
+             "ranking_reason": "这是分支 " + identifier + " 的排序文字。"} for identifier in ("before", "after")]
+        result = check_record(data)
+        self.assertIn("missing_branch_specific_basis", codes(result))
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertNotIn("copied_temporal_comparison", {x["code"] for x in result["quality_warnings"]})
+        data["temporal_branches"][0]["basis_evidence_ids"] = ["absent"]
+        self.assertFalse(check_record(data)["record_valid"])
+
+    def test_lower_tier_tie_does_not_create_a_unique_strongest_alternative(self):
+        data = ranked_record()
+        data["ranking"] = [["A"], ["B", "C"]]
+        result = check_record(data)
+        self.assertEqual(result["primary_ranking_status"], "relative_basis_declared")
+        self.assertEqual(result["alternative_role"], "tied_comparator")
+        self.assertIn("并列对照（原记录）：B", render_summary(data))
+        self.assertNotIn("最强备选", render_summary(data))
 
     def test_exact_repeated_comparisons_warn_without_blocking_or_changing_evidence_status(self):
         data = ranked_record()
@@ -682,9 +817,71 @@ class RankedDecisionRecordTests(unittest.TestCase):
         self.assertEqual(result["submission_status"], "submitted")
         self.assertEqual(result["quality_warnings"][0]["code"], "repeated_candidate_comparison")
         self.assertEqual(result["quality_warnings"][0]["candidate_ids"], ["A", "B", "C"])
+        self.assertEqual(result["quality_warnings"][0]["match_type"], "exact")
         for review in data["candidate_reviews"]:
             review["comparison"] = "  "
         self.assertFalse(check_record(data)["quality_warnings"])
+
+    def test_different_prefixes_on_dominant_copied_tail_locate_reviews_in_all_versions(self):
+        for version in (1, 2, 3):
+            with self.subTest(version=version):
+                data = ranked_record() if version == 3 else symmetric_record(version)
+                for review in data["candidate_reviews"][:2]:
+                    review["comparison"] = "候选" + review["id"] + "：" + SYNTHETIC_COMPARISON_OVERVIEW
+                before = deepcopy(data)
+                result = check_record(data)
+                self.assertTrue(result["record_valid"])
+                self.assertEqual(result["effective_status"], "relative_basis_declared")
+                self.assertEqual(result["submission_status"], "submitted")
+                self.assertEqual(result["primary"], "A")
+                self.assertEqual(len(result["quality_warnings"]), 1)
+                warning = result["quality_warnings"][0]
+                self.assertEqual(warning["code"], "repeated_candidate_comparison")
+                self.assertEqual(warning["match_type"], "dominant_shared_suffix")
+                self.assertEqual(warning["candidate_ids"], ["A", "B"])
+                self.assertEqual(warning["comparison_paths"], [
+                    "$.candidate_reviews[0].comparison", "$.candidate_reviews[1].comparison"])
+                self.assertGreaterEqual(warning["shared_suffix_chars"], len(SYNTHETIC_COMPARISON_OVERVIEW))
+                self.assertEqual(result["review_completion_status"], "needs_review" if version == 3 else "not_checked")
+                self.assertIn("comparison_paths", " ".join(result["review_actions"]))
+                self.assertIn("候选 A、B 的比较文字共用占主体的相同长尾", render_summary(data))
+                self.assertEqual(data, before)
+
+    def test_different_comparisons_with_a_nondominant_shared_tail_do_not_warn(self):
+        data = ranked_record()
+        distinct_comparisons = [
+            "甲的合成条件对应取得阶段，与乙的准备阶段不同；这项差异只涉及当前目标，不能补齐其余细节。",
+            "乙的合成条件仅对应准备阶段，与甲的取得条件不同；另有必要前提尚未确定，须保留其限制。",
+            "丙的合成条件对应后续维持阶段，与甲的取得阶段不同；需要分别查明先前状态，暂不作升级。",
+        ]
+        for review, comparison in zip(data["candidate_reviews"], distinct_comparisons):
+            review["comparison"] = comparison * 4 + SYNTHETIC_COMPARISON_OVERVIEW
+        self.assertFalse(check_record(data)["quality_warnings"])
+
+    def test_short_shared_phrases_do_not_warn_even_when_they_dominate(self):
+        data = ranked_record()
+        for review in data["candidate_reviews"]:
+            review["comparison"] = review["id"] + "：现有资料无法区分，暂保留未知。"
+        self.assertFalse(check_record(data)["quality_warnings"])
+
+    def test_all_unknown_with_copied_overview_still_submits_without_inventing_evidence(self):
+        data = tied_record()
+        for review in data["candidate_reviews"]:
+            review["comparison"] = "候选" + review["id"] + "：" + SYNTHETIC_COMPARISON_OVERVIEW
+        before = deepcopy(data)
+        result = check_record(data)
+        self.assertTrue(result["record_valid"])
+        self.assertEqual(result["submission_status"], "submitted")
+        self.assertEqual(result["effective_status"], "unresolved")
+        self.assertEqual(result["primary"], "A")
+        self.assertEqual(result["primary_ranking_status"], "tied")
+        self.assertEqual(result["review_completion_status"], "needs_review")
+        self.assertEqual({item["code"] for item in result["quality_warnings"]},
+                         {"repeated_candidate_comparison", "empty_candidate_basis"})
+        self.assertEqual(result["quality_warnings"][0]["candidate_ids"], ["A", "B", "C"])
+        self.assertEqual(len(result["unknown_claims"]), 3)
+        self.assertNotIn("primary_contradicted", codes(result))
+        self.assertEqual(data, before)
 
     def test_summary_titles_use_fields_preserve_prose_and_never_correct_choice(self):
         data = ranked_record()
