@@ -1,1 +1,28 @@
-{"skill": "bazi-inference", "version": "0.5.4", "core_tests": 125, "maintainer_tests": 92, "tests": 217, "failures": 0, "errors": 0, "skipped": 0, "software_checks_pass": true, "prediction_accuracy_validated": false}
+{
+  "skill": "bazi-inference",
+  "version": "0.5.5",
+  "release_checks": {
+    "skill_format": true,
+    "metadata_consistency": true,
+    "local_reference_targets": 19,
+    "missing_reference_targets": 0,
+    "independent_instruction_review": true,
+    "synthetic_consultation_runs": 2,
+    "expected_changed_skill_files": 8,
+    "calculation_and_dependency_blobs_unchanged": true
+  },
+  "software_tests_rerun_for_this_release": false,
+  "previous_release_software_checks": {
+    "skill": "bazi-inference",
+    "version": "0.5.4",
+    "core_tests": 125,
+    "maintainer_tests": 92,
+    "tests": 217,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "software_checks_pass": true,
+    "prediction_accuracy_validated": false
+  },
+  "prediction_accuracy_validated": false
+}

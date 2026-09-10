@@ -1,19 +1,18 @@
 {
   "name": "bazi-inference",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "status": "experimental",
   "minimum_python": "3.10",
   "prediction_accuracy_validated": false,
   "contains_private_training_cases": false,
   "release_scope": [
-    "retain verified birth-chart, historical-clock, Bazi and optional Ziwei calculation interfaces",
-    "consultation-first entrypoint with progressive loading; simple frozen records for ordinary and batch use",
-    "separate supplied events from unknown occurrence and timing without enlarging original time or quantifier scope",
-    "compare nearest competing outcomes within the same field before selecting a specific event or identity",
-    "keep ability, opportunity, actual activity and completed outcomes at their supported level",
-    "fusion changes require a new target-relevant distinction; no repeated selection after unresolved comparison without new material",
-    "retain v3 schema and checker standards for explicitly requested structured audits; disclose unresolved reasoning",
-    "maintenance recommendation does not claim a predictive-accuracy winner or encode case answers"
+    "ordinary consultations default to a clear primary result or choice, including requested quantities, timing and channels",
+    "separate making a judgment from its support level; unresolved comparisons get one briefly labeled subjective first choice",
+    "answer first, give key natal and luck-cycle reasons and actionable advice; keep detailed competing explanations in working notes",
+    "qualitative likelihood questions receive preference ordering, without invented calibrated percentages or symbol-to-event counting",
+    "align Bazi, annual-report, event and Ziwei output instructions; preserve calculation, factual, professional-domain and audit boundaries",
+    "respect requests for a metaphysical interpretation without substituting known recruitment progress for chart reasoning",
+    "preserve existing chart engines and all exercise-mode scoring and decision-record standards"
   ],
   "scope_limits": [
     "Not a trained model or a guarantee of prediction accuracy",
@@ -32,15 +31,26 @@
     "annual_coverage": "Gregorian year segments at declared annual/decadal boundaries; no full monthly coverage claim"
   },
   "optimization_goal": "面向普通用户，改进可迁移的命理推演技巧与实际解读能力；多轮答题和复盘用于验证方法，不能以评分、记录或语气改进冒充准确率提升。",
-  "default_workflow": "consultation-first: chart, natal mechanism, luck-cycle changes, concrete interpretation",
+  "default_workflow": "consultation-first: verify chart, compare natal and luck-cycle mechanisms, state one primary conclusion, explain key reasons, give advice",
   "evaluation_workflow": "simple frozen per-question records by default; v3 only for explicitly requested structured audit or machine evaluation",
   "validation_scope": [
-    "125 core Python and 92 repository maintainer software tests passed (217 total, no failures, errors or skips)",
-    "14 local Ziwei Node tests passed (no failures, cancellations or skips)",
-    "27 local Markdown and routed resource references checked with no missing targets",
-    "independent read-only review found no release-blocking instruction conflicts; single-system preference and audit trigger wording aligned",
-    "one independent-context synthetic ordinary consultation completed actual offline chart and two-year comparison; no outcome key or predictive accuracy measured",
-    "Bazi and Ziwei calculation engines, dependencies, and v3 input schema/checker unchanged from 0.5.3; maintenance instructions do not establish predictive gains"
+    "personal-skills frontmatter validator passed for the installed skill directory",
+    "git diff whitespace check passed",
+    "no calculation scripts, dependency files, or decision-record schemas changed in this revision",
+    "19 local Markdown and routed resource targets checked with no missing targets; release and UI metadata consistent",
+    "independent read-only diff review found no blocking output-rule conflicts; missing-input, factual and professional-domain boundaries preserved",
+    "two independent-context synthetic consultations completed local chart calculation and gave direct quantity/channel/timing or year/outcome/action choices; no outcome keys or predictive accuracy measured"
   ],
-  "release_kind": "consolidated-maintenance"
+  "release_kind": "consultation-conclusion-and-advice",
+  "previous_release_validation": {
+    "version": "0.5.4",
+    "validation_scope": [
+      "125 core Python and 92 repository maintainer software tests passed (217 total, no failures, errors or skips)",
+      "14 local Ziwei Node tests passed (no failures, cancellations or skips)",
+      "27 local Markdown and routed resource references checked with no missing targets",
+      "independent read-only review found no release-blocking instruction conflicts; single-system preference and audit trigger wording aligned",
+      "one independent-context synthetic ordinary consultation completed actual offline chart and two-year comparison; no outcome key or predictive accuracy measured",
+      "Bazi and Ziwei calculation engines, dependencies, and v3 input schema/checker unchanged from 0.5.3; maintenance instructions do not establish predictive gains"
+    ]
+  }
 }

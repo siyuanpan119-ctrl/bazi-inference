@@ -1,6 +1,6 @@
 {
   "name": "bazi-inference",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "可复用的八字推演与可选紫微合参，回答具体命理问题和年度大运报告。",
   "author": {
     "name": "siyuanpan119-ctrl",
@@ -21,7 +21,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "八字命理推演（Bazi Inference）",
-    "shortDescription": "根据出生资料分析八字与紫微、具体问题、流年和大运。",
+    "shortDescription": "根据出生资料推演八字与紫微，先给明确判断和建议，再简述依据。",
     "longDescription": "核验出生时间、性别和出生地后排定四柱，以固定方法分析日主旺衰、格局用神、相神与喜忌，并回答事业财运、婚恋家庭、学业性格、年度运势和流年大运等问题。可选本地紫微排盘，分别分析命宫、各事项宫位与岁限后交叉比较。",
     "developerName": "siyuanpan119-ctrl",
     "category": "Productivity",
@@ -30,7 +30,7 @@
     "defaultPrompt": [
       "根据我的出生时间、性别和出生城市，核验四柱并完整分析命局。",
       "分析我的事业财运、婚恋家庭，以及当前大运和未来几年流年。",
-      "比较指定年份的事业、财运或婚恋倾向，并说明判断依据。"
+      "比较指定年份的事业、财运或婚恋倾向，先给明确主判断和建议，再简述依据。"
     ],
     "brandColor": "#7A1F1F",
     "composerIcon": "./skills/bazi-inference/assets/icon.svg",

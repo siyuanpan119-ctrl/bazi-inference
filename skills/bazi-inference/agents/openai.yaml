@@ -1,7 +1,7 @@
 interface:
   display_name: "八字命理推演"
-  short_description: "从出生资料推演八字与可选紫微合参，分析具体问题、年度运势和流年大运"
-  default_prompt: "使用 $bazi-inference，根据我的出生时间、性别和出生城市核验命盘，分析八字用神相神与喜忌；按我的问题完成年度大运报告，需要时结合紫微独立比较。"
+  short_description: 从出生资料推演八字与可选紫微合参，对具体问题先给明确判断和建议，再简述依据
+  default_prompt: 使用 $bazi-inference，根据我的出生时间、性别和出生城市核验命盘，结合原局与岁运回答我的问题；先给明确主判断和建议，再说明关键依据，把握有限的部分简短说明。
   icon_small: "assets/icon.svg"
   icon_large: "assets/icon.svg"
 policy:
